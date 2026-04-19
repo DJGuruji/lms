@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaClientKnownRequestError } from '@prisma/client-runtime-utils';
+import { normalizeSubdomain } from '../common/utils/subdomain.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ROLE_INSTITUTION_ADMIN } from './constants.js';
 import type { JwtPayload } from './strategies/jwt.strategy.js';
@@ -21,21 +22,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  private normalizeSubdomain(raw: string): string {
-    const s = raw
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    if (s.length < 2) {
-      throw new ConflictException('Invalid subdomain');
-    }
-    return s;
-  }
-
   async register(dto: RegisterDto) {
-    const subdomain = this.normalizeSubdomain(dto.subdomain);
+    const subdomain = normalizeSubdomain(dto.subdomain);
     const email = dto.email.trim().toLowerCase();
     const hashed = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
@@ -77,6 +65,7 @@ export class AuthService {
           id: result.institute.id,
           name: result.institute.name,
           subdomain: result.institute.subdomain,
+          path: `/${result.institute.subdomain}`,
         },
       };
     } catch (err) {

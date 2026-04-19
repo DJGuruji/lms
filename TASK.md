@@ -167,7 +167,7 @@ TEACHER
 
 ---
 
-## STEP 5 — Multi-Tenant Logic
+## STEP 5 — Multi-Tenant Logic ✅ *Completed*
 
 * Every request must include:
 
@@ -181,7 +181,7 @@ where: { instituteId: user.instituteId }
 
 ---
 
-## STEP 6 — Institute Module
+## STEP 6 — Institute Module ✅ *Completed*
 
 * Create institute on signup
 * Generate subdomain:

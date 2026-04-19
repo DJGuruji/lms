@@ -2,7 +2,7 @@
 
 ---
 
-## STEP 1 — Project Setup
+## STEP 1 — Project Setup ✅ *Completed*
 
 ### Backend (Nest.js)
 
@@ -40,7 +40,7 @@
 
 ---
 
-## STEP 2 — Database Setup (Supabase)
+## STEP 2 — Database Setup (Supabase) ✅ *Completed*
 
 * Create project in Supabase
 * Copy PostgreSQL connection string
@@ -127,7 +127,7 @@ npx prisma migrate dev
 
 ---
 
-## STEP 3 — Auth System (JWT)
+## STEP 3 — Auth System (JWT) ✅ *Completed*
 
 ### Backend
 
@@ -146,7 +146,7 @@ npx prisma migrate dev
 
 ---
 
-## STEP 4 — Role-Based Access
+## STEP 4 — Role-Based Access ✅ *Completed*
 
 Roles:
 

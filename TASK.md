@@ -22,6 +22,7 @@
   npx prisma init
   ```
 
+
 ---
 
 ### Frontend (Next.js)

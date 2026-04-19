@@ -190,7 +190,7 @@ where: { instituteId: user.instituteId }
 
 ---
 
-## STEP 7 — User Management
+## STEP 7 — User Management ✅ *Completed*
 
 ### Features:
 
@@ -206,7 +206,7 @@ where: { instituteId: user.instituteId }
 
 ---
 
-## STEP 8 — Course Module
+## STEP 8 — Course Module ✅ *Completed*
 
 ### APIs:
 
@@ -217,7 +217,7 @@ where: { instituteId: user.instituteId }
 
 ---
 
-## STEP 9 — Subject Module
+## STEP 9 — Subject Module ✅ *Completed*
 
 * Add subjects under course
 
@@ -228,7 +228,7 @@ where: { instituteId: user.instituteId }
 
 ---
 
-## STEP 10 — Content Upload (AWS S3)
+## STEP 10 — Content Upload (AWS S3) (use aws cloud front also)
 
 Use Amazon S3
 

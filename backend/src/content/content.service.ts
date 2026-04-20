@@ -129,4 +129,43 @@ export class ContentService {
       },
     });
   }
+
+  async recordViewForStudent(
+    instituteId: string,
+    studentId: string,
+    contentId: string,
+  ) {
+    const content = await this.prisma.content.findFirst({
+      where: {
+        id: contentId,
+        subject: { course: { instituteId } },
+      },
+      select: { id: true, subject: { select: { courseId: true } } },
+    });
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: {
+        studentId,
+        courseId: content.subject.courseId,
+      },
+      select: { id: true },
+    });
+    if (!enrollment) {
+      throw new ForbiddenException('You must be enrolled in this course');
+    }
+
+    await this.prisma.contentView.create({
+      data: {
+        instituteId,
+        studentId,
+        contentId,
+      },
+      select: { id: true },
+    });
+
+    return { ok: true };
+  }
 }

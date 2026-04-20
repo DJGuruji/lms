@@ -25,6 +25,7 @@ model Institute {
 
   users   User[]
   courses Course[]
+  contentViews ContentView[]
 }
 
 model User {
@@ -35,11 +36,13 @@ model User {
   password    String // bcrypt hash
   role        Role
   instituteId String
+  createdAt   DateTime @default(now())
 
   institute   Institute    @relation(fields: [instituteId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   results     Result[]
   teacherSubjects TeacherSubject[]
+  contentViews ContentView[]
 
   @@index([instituteId])
 }
@@ -78,8 +81,25 @@ model Content {
   subjectId String
 
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  views   ContentView[]
 
   @@index([subjectId])
+}
+
+model ContentView {
+  id          String @id @default(uuid())
+  instituteId String
+  studentId   String
+  contentId   String
+  createdAt   DateTime @default(now())
+
+  student   User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  content   Content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+
+  @@index([instituteId, createdAt])
+  @@index([studentId, createdAt])
+  @@index([contentId, createdAt])
 }
 
 model Enrollment {
@@ -87,6 +107,7 @@ model Enrollment {
   studentId String
   courseId  String
   subjectId String?
+  createdAt DateTime @default(now())
 
   student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -139,6 +160,7 @@ model Result {
   studentId String
   examId    String
   score     Int
+  createdAt DateTime @default(now())
 
   student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
   exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)

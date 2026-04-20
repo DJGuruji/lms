@@ -34,6 +34,7 @@ function LearnPageContent() {
   const [preview, setPreview] = useState<ContentRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewed, setViewed] = useState<Record<string, true>>({});
 
   const loadCourse = useCallback(async () => {
     setError(null);
@@ -99,6 +100,14 @@ function LearnPageContent() {
   useEffect(() => {
     loadContent();
   }, [loadContent]);
+
+  useEffect(() => {
+    const id = preview?.id;
+    if (!id) return;
+    if (viewed[id]) return;
+    setViewed((m) => ({ ...m, [id]: true }));
+    void api.post(`/student/contents/view?contentId=${id}`).catch(() => undefined);
+  }, [preview?.id, viewed]);
 
   function selectSubject(id: string) {
     setSubjectId(id);

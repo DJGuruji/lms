@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -33,6 +34,22 @@ export class StudentContentController {
       instituteId,
       user.id,
       subjectId,
+    );
+  }
+
+  @Post('view')
+  view(
+    @CurrentInstituteId() instituteId: string,
+    @CurrentUser() user: JwtUser,
+    @Query('contentId') contentId: string | undefined,
+  ) {
+    if (!contentId) {
+      throw new BadRequestException('contentId query parameter is required');
+    }
+    return this.contentService.recordViewForStudent(
+      instituteId,
+      user.id,
+      contentId,
     );
   }
 }

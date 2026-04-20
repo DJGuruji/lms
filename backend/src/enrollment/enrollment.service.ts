@@ -18,6 +18,19 @@ export class EnrollmentService {
 
   async enroll(instituteId: string, dto: EnrollDto) {
     await this.coursesService.ensureCourseInTenant(dto.courseId, instituteId);
+    if (dto.subjectId) {
+      const ok = await this.prisma.subject.findFirst({
+        where: {
+          id: dto.subjectId,
+          courseId: dto.courseId,
+          course: { instituteId },
+        },
+        select: { id: true },
+      });
+      if (!ok) {
+        throw new BadRequestException('subjectId must belong to the course');
+      }
+    }
 
     const student = await this.prisma.user.findFirst({
       where: {
@@ -38,12 +51,14 @@ export class EnrollmentService {
         data: {
           studentId: dto.studentId,
           courseId: dto.courseId,
+          ...(dto.subjectId ? { subjectId: dto.subjectId } : {}),
         },
+        // Prisma client is regenerated after schema migrations; keep select minimal.
         select: {
           id: true,
           studentId: true,
           courseId: true,
-        },
+        } as any,
       });
     } catch (err) {
       if (

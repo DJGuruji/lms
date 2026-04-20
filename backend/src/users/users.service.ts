@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { parse } from 'csv-parse/sync';
+import * as XLSX from 'xlsx';
 import { PrismaClientKnownRequestError } from '@prisma/client-runtime-utils';
 import { Role } from '@prisma/client';
 import {
@@ -201,11 +202,38 @@ export class UsersService {
 
     const rows = await this.prisma.user.findMany({
       where,
-      select: userPublicSelect,
+      select: {
+        ...userPublicSelect,
+        enrollments: {
+          select: {
+            course: { select: { id: true, name: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+        teacherSubjects: {
+          select: {
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                course: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
       orderBy: { email: 'asc' },
     });
 
-    const header = ['id', 'name', 'email', 'mobile', 'role'] as const;
+    const header = [
+      'id',
+      'name',
+      'email',
+      'mobile',
+      'role',
+      'courses',
+      'subjects',
+    ] as const;
     const escape = (v: unknown) => {
       const s = v === null || v === undefined ? '' : String(v);
       if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -214,9 +242,42 @@ export class UsersService {
 
     const lines = [
       header.join(','),
-      ...rows.map((u) =>
-        [u.id, u.name, u.email, u.mobile ?? '', u.role].map(escape).join(','),
-      ),
+      ...rows.map((u) => {
+        const studentCourses = (u as any).enrollments?.map((e: any) => e.course) ?? [];
+        const studentSubjects = (u as any).enrollments
+          ?.map((e: any) => e.subject)
+          ?.filter(Boolean) ?? [];
+
+        const teacherSubjects = (u as any).teacherSubjects?.map((ts: any) => ts.subject) ?? [];
+        const teacherCourses = teacherSubjects.map((s: any) => s.course).filter(Boolean);
+
+        const allCourses = [...studentCourses, ...teacherCourses]
+          .filter(Boolean)
+          .reduce((acc: Map<string, string>, c: any) => {
+            acc.set(c.id, c.name);
+            return acc;
+          }, new Map<string, string>());
+
+        const allSubjects = [...studentSubjects, ...teacherSubjects]
+          .filter(Boolean)
+          .reduce((acc: Map<string, string>, s: any) => {
+            acc.set(s.id, s.name);
+            return acc;
+          }, new Map<string, string>());
+
+        const courses = Array.from(allCourses.values())
+          .map(String)
+          .sort((a: string, b: string) => a.localeCompare(b))
+          .join(' | ');
+        const subjects = Array.from(allSubjects.values())
+          .map(String)
+          .sort((a: string, b: string) => a.localeCompare(b))
+          .join(' | ');
+
+        return [u.id, u.name, u.email, u.mobile ?? '', u.role, courses, subjects]
+          .map(escape)
+          .join(',');
+      }),
     ];
     return lines.join('\r\n');
   }
@@ -311,17 +372,40 @@ export class UsersService {
     return { ok: true, teacherId, subjectIds };
   }
 
-  async bulkCsv(instituteId: string, buffer: Buffer) {
+  async bulkImport(instituteId: string, buffer: Buffer, originalName?: string) {
+    const name = (originalName ?? '').toLowerCase();
+    const isXlsx = name.endsWith('.xlsx') || name.endsWith('.xls');
+
     let rows: Record<string, string>[];
-    try {
-      rows = parse(buffer, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-        relax_column_count: true,
-      }) as Record<string, string>[];
-    } catch {
-      throw new BadRequestException('Invalid CSV');
+    if (isXlsx) {
+      try {
+        const wb = XLSX.read(buffer, { type: 'buffer' });
+        const first = wb.SheetNames[0];
+        if (!first) throw new Error('Missing sheet');
+        const sheet = wb.Sheets[first];
+        const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+          defval: '',
+          raw: false,
+        });
+        rows = json.map((r) => {
+          const out: Record<string, string> = {};
+          for (const [k, v] of Object.entries(r)) out[String(k)] = String(v ?? '');
+          return out;
+        });
+      } catch {
+        throw new BadRequestException('Invalid XLSX');
+      }
+    } else {
+      try {
+        rows = parse(buffer, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+          relax_column_count: true,
+        }) as Record<string, string>[];
+      } catch {
+        throw new BadRequestException('Invalid CSV');
+      }
     }
 
     const created: {

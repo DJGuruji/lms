@@ -113,9 +113,9 @@ export class UsersController {
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('CSV file required (field: file)');
+      throw new BadRequestException('CSV/XLSX file required (field: file)');
     }
-    return this.usersService.bulkCsv(instituteId, file.buffer);
+    return this.usersService.bulkImport(instituteId, file.buffer, file.originalname);
   }
 
   @Patch(':id')

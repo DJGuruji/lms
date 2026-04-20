@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
   Users as UsersIcon,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
@@ -47,34 +48,60 @@ export default function UsersPage() {
   const [courseFilter, setCourseFilter] = useState<string>("");
   const [subjectFilter, setSubjectFilter] = useState<string>("");
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", String(limit));
-      if (q.trim()) params.set("q", q.trim());
-      if (roleFilter) params.set("role", roleFilter);
-      if (courseFilter) params.set("courseId", courseFilter);
-      if (subjectFilter) params.set("subjectId", subjectFilter);
+  const cacheKey = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    if (q.trim()) params.set("q", q.trim());
+    if (roleFilter) params.set("role", roleFilter);
+    if (courseFilter) params.set("courseId", courseFilter);
+    if (subjectFilter) params.set("subjectId", subjectFilter);
+    return `adminUsers:${params.toString()}`;
+  }, [page, limit, q, roleFilter, courseFilter, subjectFilter]);
 
+  const load = useCallback(async (force?: boolean) => {
+    setError(null);
+    if (!force) {
+      const cached = typeof window !== "undefined" ? window.sessionStorage.getItem(cacheKey) : null;
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as { items: UserRow[]; total: number };
+          if (Array.isArray(parsed.items)) setRows(parsed.items);
+          if (typeof parsed.total === "number") setTotal(parsed.total);
+          setLoading(false);
+          return;
+        } catch {
+          // ignore cache parse errors
+        }
+      }
+    }
+    try {
       const res = await api.get<{
         items: UserRow[];
         total: number;
         page: number;
         limit: number;
-      }>(`/users?${params.toString()}`);
+      }>(`/users?${cacheKey.replace(/^adminUsers:/, "")}`);
       setRows(Array.isArray(res.data?.items) ? res.data.items : []);
       setTotal(Number(res.data?.total ?? 0));
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            items: Array.isArray(res.data?.items) ? res.data.items : [],
+            total: Number(res.data?.total ?? 0),
+          }),
+        );
+      }
     } catch {
       setError("Could not load users.");
     } finally {
       setLoading(false);
     }
-  }, [page, limit, q, roleFilter, courseFilter, subjectFilter]);
+  }, [cacheKey]);
 
   useEffect(() => {
-    load();
+    load(false);
   }, [load]);
 
   const canCreateInstitutionAdmin = me?.role === "SUPER_ADMIN" || me?.role === "ADMIN";
@@ -250,6 +277,20 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              void load(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+            disabled={busy}
+            aria-label="Refresh"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
           <button
             type="button"
             onClick={() => setBulkOpen(true)}
@@ -987,7 +1028,7 @@ function BulkUploadModal({
             </label>
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />

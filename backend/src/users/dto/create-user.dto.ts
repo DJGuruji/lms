@@ -7,7 +7,13 @@ import {
   MinLength,
 } from 'class-validator';
 
-const ROLES_ON_CREATE = ['STUDENT', 'TEACHER', 'ADMIN'] as const;
+const ROLES_ON_CREATE = [
+  'STUDENT',
+  'TEACHER',
+  'INSTITUTION_ADMIN',
+  'ADMIN',
+  'SUPER_ADMIN',
+] as const;
 
 export class CreateUserDto {
   @IsString()
@@ -17,6 +23,12 @@ export class CreateUserDto {
 
   @IsEmail()
   email: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(32)
+  mobile?: string;
 
   @IsOptional()
   @IsString()

@@ -1,4 +1,4 @@
-import { IsUUID } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
 
 export class EnrollDto {
   @IsUUID()
@@ -6,4 +6,9 @@ export class EnrollDto {
 
   @IsUUID()
   courseId: string;
+
+  /** Optional starter subject for the enrollment (TASK.md). */
+  @IsOptional()
+  @IsUUID()
+  subjectId?: string;
 }

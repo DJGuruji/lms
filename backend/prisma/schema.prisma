@@ -31,6 +31,7 @@ model User {
   id          String @id @default(uuid())
   name        String
   email       String @unique
+  mobile      String?
   password    String // bcrypt hash
   role        Role
   instituteId String
@@ -38,6 +39,7 @@ model User {
   institute   Institute    @relation(fields: [instituteId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   results     Result[]
+  teacherSubjects TeacherSubject[]
 
   @@index([instituteId])
 }
@@ -62,6 +64,8 @@ model Subject {
 
   course   Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   contents Content[]
+  teacherSubjects TeacherSubject[]
+  enrollments Enrollment[]
 
   @@index([courseId])
 }
@@ -82,12 +86,27 @@ model Enrollment {
   id        String @id @default(uuid())
   studentId String
   courseId  String
+  subjectId String?
 
   student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@unique([studentId, courseId])
   @@index([studentId])
+}
+
+/** Teacher → Subject assignments (used to infer courses). */
+model TeacherSubject {
+  id        String @id @default(uuid())
+  teacherId String
+  subjectId String
+
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId])
+  @@index([teacherId])
 }
 
 model Exam {

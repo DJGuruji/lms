@@ -11,6 +11,11 @@ const DEMO_SUBDOMAIN = 'lms-demo-seed';
 const DEMO_PASSWORD = 'SeedDemo#1';
 const BCRYPT_ROUNDS = 12;
 
+const SEED_CREATE_SUPER_ADMIN =
+  (process.env.SEED_CREATE_SUPER_ADMIN ?? '').toLowerCase() === 'true';
+const SEED_CREATE_ADMIN =
+  (process.env.SEED_CREATE_ADMIN ?? '').toLowerCase() === 'true';
+
 async function main() {
   if (process.env.NODE_ENV !== 'development') {
     console.error(
@@ -69,6 +74,32 @@ async function main() {
         subdomain: DEMO_SUBDOMAIN,
       },
     });
+
+    if (SEED_CREATE_SUPER_ADMIN) {
+      await prisma.user.create({
+        data: {
+          name: 'Demo Super Admin',
+          email: `nath93266@gmail.com`,
+          password: hashed,
+          role: 'SUPER_ADMIN',
+          instituteId: institute.id,
+        },
+        select: { id: true },
+      });
+    }
+
+    if (SEED_CREATE_ADMIN) {
+      await prisma.user.create({
+        data: {
+          name: 'Demo Admin',
+          email: `admin@${DEMO_SUBDOMAIN}.local`,
+          password: hashed,
+          role: 'ADMIN',
+          instituteId: institute.id,
+        },
+        select: { id: true },
+      });
+    }
 
     const teacher = await prisma.user.create({
       data: {
@@ -161,6 +192,22 @@ async function main() {
     });
 
     console.log('[seed] Demo institute:', institute.subdomain);
+    if (SEED_CREATE_SUPER_ADMIN) {
+      console.log(
+        '[seed] Super admin login:',
+        `superadmin@${DEMO_SUBDOMAIN}.local`,
+        '/',
+        DEMO_PASSWORD,
+      );
+    }
+    if (SEED_CREATE_ADMIN) {
+      console.log(
+        '[seed] Admin login:',
+        `admin@${DEMO_SUBDOMAIN}.local`,
+        '/',
+        DEMO_PASSWORD,
+      );
+    }
     console.log('[seed] Teacher login:', teacher.email, '/', DEMO_PASSWORD);
     console.log('[seed] Student login:', student.email, '/', DEMO_PASSWORD);
   } finally {

@@ -8,6 +8,16 @@ datasource db {
   provider = "postgresql"
 }
 
+
+// Roles are stored on User.role
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  INSTITUTION_ADMIN
+  TEACHER
+  STUDENT
+}
+
 model Institute {
   id        String @id @default(uuid())
   name      String
@@ -22,7 +32,7 @@ model User {
   name        String
   email       String @unique
   password    String // bcrypt hash
-  role        String
+  role        Role
   instituteId String
 
   institute   Institute    @relation(fields: [instituteId], references: [id], onDelete: Cascade)

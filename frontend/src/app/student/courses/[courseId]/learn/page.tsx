@@ -1,40 +1,25 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Film } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, Layers, BookOpen, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
-import { ContentPreview } from "@/components/ContentPreview";
 import { StudentShell } from "@/components/student/StudentShell";
 
 type Subject = { id: string; name: string };
 type CourseRow = {
   course: { id: string; name: string; subjects: Subject[] };
 };
-type ContentRow = {
-  id: string;
-  title: string;
-  type: string;
-  fileUrl: string;
-  subjectId: string;
-};
 
-function LearnPageContent() {
+export default function StudentLearnPage() {
   const params = useParams();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const courseId = params.courseId as string;
-  const subjectFromQuery = searchParams.get("subject") ?? "";
 
   const [courseName, setCourseName] = useState("");
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [subjectId, setSubjectId] = useState(subjectFromQuery);
-  const [items, setItems] = useState<ContentRow[]>([]);
-  const [preview, setPreview] = useState<ContentRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewed, setViewed] = useState<Record<string, true>>({});
 
   const loadCourse = useCallback(async () => {
     setError(null);
@@ -50,193 +35,69 @@ function LearnPageContent() {
       }
       setCourseName(hit.course.name);
       setSubjects(hit.course.subjects);
-      const initial =
-        subjectFromQuery && hit.course.subjects.some((s) => s.id === subjectFromQuery)
-          ? subjectFromQuery
-          : hit.course.subjects[0]?.id ?? "";
-      setSubjectId(initial);
-      if (initial && initial !== subjectFromQuery) {
-        router.replace(`/student/courses/${courseId}/learn?subject=${initial}`, {
-          scroll: false,
-        });
-      }
     } catch {
-      setError("Could not load course.");
+      setError("Could not load course subjects.");
     } finally {
       setLoading(false);
     }
-  }, [courseId, subjectFromQuery, router]);
+  }, [courseId]);
 
   useEffect(() => {
     loadCourse();
   }, [loadCourse]);
 
-  const loadContent = useCallback(async () => {
-    if (!subjectId) {
-      setItems([]);
-      setPreview(null);
-      return;
-    }
-    setError(null);
-    try {
-      const res = await api.get<ContentRow[]>(
-        `/student/contents?subjectId=${subjectId}`,
-      );
-      const data = Array.isArray(res.data) ? res.data : [];
-      setItems(data);
-      setPreview((prev) => {
-        if (prev && data.some((x) => x.id === prev.id)) {
-          return data.find((x) => x.id === prev.id) ?? null;
-        }
-        return data[0] ?? null;
-      });
-    } catch {
-      setItems([]);
-      setPreview(null);
-      setError("Could not load lessons for this subject.");
-    }
-  }, [subjectId]);
-
-  useEffect(() => {
-    loadContent();
-  }, [loadContent]);
-
-  useEffect(() => {
-    const id = preview?.id;
-    if (!id) return;
-    if (viewed[id]) return;
-    setViewed((m) => ({ ...m, [id]: true }));
-    void api.post(`/student/contents/view?contentId=${id}`).catch(() => undefined);
-  }, [preview?.id, viewed]);
-
-  function selectSubject(id: string) {
-    setSubjectId(id);
-    router.replace(`/student/courses/${courseId}/learn?subject=${id}`, {
-      scroll: false,
-    });
-  }
-
-  const pastelFor = useMemo(
-    () => ["#d1fae5", "#e9d5ff", "#fef9c3", "#cffafe", "#fde68a"],
-    [],
-  );
-
   return (
-    <StudentShell title={courseName ? `Learn · ${courseName}` : "Watch content"}>
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Link
-          href="/student/courses"
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to my courses
-        </Link>
+    <StudentShell title={courseName ? `Study · ${courseName}` : "Subjects"}>
+      <div className="mx-auto max-w-5xl space-y-8">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/student/courses"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:shadow"
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-600" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{courseName || "Course Subjects"}</h1>
+            <p className="text-sm text-slate-500 mt-1">Select a subject to dive into the tailored content segregations</p>
+          </div>
+        </div>
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             {error}
           </div>
         )}
 
         {loading ? (
-          <p className="text-slate-500">Loading…</p>
+          <div className="flex min-h-[40vh] items-center justify-center text-slate-400 font-medium">Loading subjects…</div>
+        ) : subjects.length === 0 ? (
+           <div className="flex min-h-[40vh] items-center justify-center text-slate-400 font-medium border-2 border-dashed border-slate-200 rounded-3xl">No subjects added to this course yet.</div>
         ) : (
-          <>
-            <div className="flex flex-wrap gap-3">
-              {subjects.map((s, idx) => (
-                <button
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+             {subjects.map((s, index) => (
+                <Link
                   key={s.id}
-                  type="button"
-                  onClick={() => selectSubject(s.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
-                    subjectId === s.id
-                      ? "bg-slate-900 text-white shadow-md"
-                      : "border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
-                  }`}
-                  style={
-                    subjectId !== s.id
-                      ? { backgroundColor: pastelFor[idx % pastelFor.length] }
-                      : undefined
-                  }
+                  href={`/student/courses/${courseId}/learn/${s.id}`}
+                  className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 p-6 shadow-sm ring-1 ring-slate-900/5 transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-[0_12px_40px_-24px_rgba(79,70,229,0.3)]"
                 >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-5">
-              <div className="space-y-3 lg:col-span-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <Film className="h-4 w-4 text-blue-600" />
-                  Lessons
-                </h3>
-                <ul className="space-y-2">
-                  {items.length === 0 ? (
-                    <li className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                      No content in this subject yet.
-                    </li>
-                  ) : (
-                    items.map((row, i) => (
-                      <li key={row.id}>
-                        <button
-                          type="button"
-                          onClick={() => setPreview(row)}
-                          className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                            preview?.id === row.id
-                              ? "border-blue-300 bg-blue-50 ring-2 ring-blue-500/20"
-                              : "border-slate-100 bg-white hover:border-blue-100"
-                          }`}
-                          style={{
-                            backgroundColor:
-                              preview?.id === row.id
-                                ? undefined
-                                : pastelFor[i % pastelFor.length],
-                          }}
-                        >
-                          <span className="font-medium text-slate-900">
-                            {row.title}
-                          </span>
-                          <span className="shrink-0 text-xs uppercase text-slate-500">
-                            {row.type}
-                          </span>
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-
-              <div className="lg:col-span-3">
-                {preview ? (
-                  <ContentPreview
-                    title={preview.title}
-                    type={preview.type}
-                    fileUrl={preview.fileUrl}
-                  />
-                ) : (
-                  <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-500">
-                    Select a lesson to preview video or PDF.
+                  <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                     <Layers className="w-20 h-20 transform -rotate-12 translate-x-4 -translate-y-4 text-indigo-900" />
                   </div>
-                )}
-              </div>
-            </div>
-          </>
+                  
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                    <BookOpen className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-700 transition-colors mb-1">
+                    {s.name}
+                  </h3>
+                  <div className="flex items-center text-indigo-600 font-semibold text-sm mt-8 gap-1 group-hover:gap-2 transition-all">
+                     View Segregations <ChevronRight className="w-4 h-4" />
+                  </div>
+                </Link>
+             ))}
+          </div>
         )}
       </div>
     </StudentShell>
-  );
-}
-
-export default function StudentLearnPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[50vh] items-center justify-center text-slate-500">
-          Loading…
-        </div>
-      }
-    >
-      <LearnPageContent />
-    </Suspense>
   );
 }

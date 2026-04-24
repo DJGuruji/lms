@@ -48,68 +48,75 @@ export default function StudentCoursesPage() {
           </div>
         )}
 
-        <ul className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {loading ? (
-            <li className="rounded-3xl border border-slate-100 bg-white px-6 py-10 text-center text-slate-500 shadow-sm">
-              Loading your courses…
-            </li>
+            <div className="col-span-full rounded-3xl border border-slate-100 bg-white px-6 py-12 text-center text-slate-500 shadow-sm">
+              <div className="animate-pulse flex flex-col items-center gap-3">
+                 <div className="h-10 w-10 bg-slate-200 rounded-full"></div>
+                 <div className="h-4 w-32 bg-slate-200 rounded-lg"></div>
+              </div>
+            </div>
           ) : rows.length === 0 ? (
-            <li className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-500">
+            <div className="col-span-full rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-500">
               No enrollments yet. Ask your teacher to enroll you in a course.
-            </li>
+            </div>
           ) : (
             rows.map(({ course }, i) => (
-              <li
+              <div
                 key={course.id}
-                className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-900/5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-[0_12px_40px_-24px_rgba(37,99,235,0.4)]"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-5 py-4">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-xs font-medium text-slate-400">
-                      {i + 1}.
-                    </span>
-                    <div>
-                      <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        {course.name}
-                      </h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {course.subjects.length} subject
-                        {course.subjects.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
+                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                   <BookOpen className="w-16 h-16 transform rotate-12" />
+                </div>
+                <div className="p-6 pb-4">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                    <BookOpen className="h-6 w-6" />
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={`/student/courses/${course.id}/learn`}
-                      className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-600/25 hover:bg-blue-700"
-                    >
-                      Watch content
-                      <ChevronRight className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href={`/student/courses/${course.id}/exams`}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    >
-                      Exams
-                    </Link>
+                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                    {course.name}
+                  </h3>
+                  <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-500">
+                     <span className="bg-slate-100 px-2 py-1 rounded-md">{course.subjects.length} Subject{course.subjects.length === 1 ? "" : "s"}</span>
                   </div>
                 </div>
-                <ul className="divide-y divide-slate-100 px-5 py-2">
-                  {course.subjects.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-2 py-3 text-sm text-slate-700"
-                    >
-                      <Layers className="h-4 w-4 shrink-0 text-slate-400" />
-                      {s.name}
-                    </li>
-                  ))}
-                </ul>
-              </li>
+
+                <div className="px-6 py-4 flex flex-col gap-3">
+                   <div className="space-y-1">
+                      {course.subjects.slice(0, 3).map((s) => (
+                        <div key={s.id} className="flex items-center gap-2 text-sm text-slate-600">
+                          <Layers className="h-3 w-3 shrink-0 text-slate-400" />
+                          <span className="truncate">{s.name}</span>
+                        </div>
+                      ))}
+                      {course.subjects.length > 3 && (
+                         <div className="text-xs text-slate-400 pl-5 font-medium">+ {course.subjects.length - 3} more</div>
+                      )}
+                      {course.subjects.length === 0 && (
+                         <div className="text-sm text-slate-400 italic">No subjects added yet</div>
+                      )}
+                   </div>
+                </div>
+                
+                <div className="border-t border-slate-50 bg-slate-50/50 p-6 pt-4 flex gap-3 z-10">
+                   <Link
+                     href={`/student/courses/${course.id}/learn`}
+                     className="flex-1 flex justify-center items-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] transition-all"
+                   >
+                     Study
+                     <ChevronRight className="h-4 w-4" />
+                   </Link>
+                   <Link
+                     href={`/student/courses/${course.id}/exams`}
+                     className="flex-1 flex justify-center items-center rounded-xl bg-white border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
+                   >
+                     Exams
+                   </Link>
+                </div>
+              </div>
             ))
           )}
-        </ul>
+        </div>
       </div>
     </StudentShell>
   );

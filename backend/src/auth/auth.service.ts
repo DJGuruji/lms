@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -22,7 +23,39 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  async verifyRecaptcha(token?: string) {
+    const secret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!secret) return; // Skip if secret is not set (e.g. dev environment)
+    if (!token) throw new BadRequestException('reCAPTCHA token is required');
+
+    try {
+      const verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+      const response = await fetch(verifyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `secret=${secret}&response=${token}`,
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new UnauthorizedException('reCAPTCHA verification failed');
+      }
+      if (data.score !== undefined && data.score < 0.5) {
+        throw new UnauthorizedException('reCAPTCHA score too low, suspected bot');
+      }
+    } catch (e: any) {
+      if (e instanceof UnauthorizedException || e instanceof BadRequestException) {
+        throw e;
+      }
+      throw new UnauthorizedException('Failed to verify reCAPTCHA');
+    }
+  }
+
   async register(dto: RegisterDto) {
+    await this.verifyRecaptcha(dto.recaptchaToken);
+    
     const subdomain = normalizeSubdomain(dto.subdomain);
     const email = dto.email.trim().toLowerCase();
     const hashed = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
@@ -82,6 +115,8 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    await this.verifyRecaptcha(dto.recaptchaToken);
+
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },

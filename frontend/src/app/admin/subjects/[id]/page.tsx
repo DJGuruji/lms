@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Film, FileUp, Link as LinkIcon, ArrowLeft, Tags, ListTree, MoreHorizontal, Trash2, Edit2, Pencil } from "lucide-react";
+import { Film, FileUp, Link as LinkIcon, ArrowLeft, Tags, ListTree, MoreHorizontal, Trash2, Edit2, Pencil, FileText } from "lucide-react";
 import { ContentPreview } from "@/components/ContentPreview";
 import { api } from "@/lib/api";
 import { useParams } from "next/navigation";
+import { AssignmentsTab } from "./AssignmentsTab";
 
 // --- Types ---
 type ContentCategory = {
@@ -49,7 +50,7 @@ export default function SubjectContentPage() {
   const params = useParams();
   const subjectId = params.id as string;
   
-  const [activeTab, setActiveTab] = useState<"contents" | "categories">("contents");
+  const [activeTab, setActiveTab] = useState<"contents" | "categories" | "assignments">("contents");
   
   // Data
   const [categories, setCategories] = useState<ContentCategory[]>([]);
@@ -201,12 +202,34 @@ export default function SubjectContentPage() {
           <ListTree className="w-4 h-4" /> Contents
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("categories")}
-          className={`py-3 px-6 text-sm font-semibold transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'categories' ? 'border-blue-600 text-blue-700 bg-blue-50/30' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+          className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition ${
+            activeTab === "categories"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
         >
-          <Tags className="w-4 h-4" /> Categories
+          <Tags className="h-4 w-4" />
+          Categories
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("assignments")}
+          className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition ${
+            activeTab === "assignments"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Assignments
         </button>
       </div>
+
+      {activeTab === "assignments" && (
+        <AssignmentsTab subjectId={subjectId} />
+      )}
 
       {/* Categories Tab */}
       {activeTab === 'categories' && (

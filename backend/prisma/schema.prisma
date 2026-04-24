@@ -43,6 +43,7 @@ model User {
   results     Result[]
   teacherSubjects TeacherSubject[]
   contentViews ContentView[]
+  assignmentSubmissions AssignmentSubmission[]
 
   @@index([instituteId])
 }
@@ -70,6 +71,7 @@ model Subject {
   categories ContentCategory[]
   teacherSubjects TeacherSubject[]
   enrollments Enrollment[]
+  assignments Assignment[]
 
   @@index([courseId])
 }
@@ -184,4 +186,49 @@ model Result {
 
   @@unique([studentId, examId])
   @@index([examId])
+  @@index([studentId])
+}
+
+model Assignment {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  isPublished Boolean   @default(true)
+  subjectId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  subject     Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions   AssignmentQuestion[]
+  submissions AssignmentSubmission[]
+
+  @@index([subjectId])
+}
+
+model AssignmentQuestion {
+  id           String  @id @default(uuid())
+  assignmentId String
+  text         String
+  imageUrl     String?
+  pdfUrl       String?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+}
+
+model AssignmentSubmission {
+  id           String   @id @default(uuid())
+  assignmentId String
+  studentId    String
+  fileUrl      String    // PDF or Image uploaded by student
+  submittedAt  DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
 }

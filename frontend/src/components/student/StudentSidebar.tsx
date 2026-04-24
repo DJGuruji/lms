@@ -7,11 +7,13 @@ import {
   BookOpen,
   Trophy,
   GraduationCap,
+  FileText,
 } from "lucide-react";
 
 const nav = [
   { href: "/student", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/student/courses", label: "My courses", icon: BookOpen },
+  { href: "/student/assignments", label: "Assignments", icon: FileText },
   { href: "/student/results", label: "Results", icon: Trophy },
 ];
 

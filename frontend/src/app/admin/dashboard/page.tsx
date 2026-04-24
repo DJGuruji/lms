@@ -54,8 +54,8 @@ function ProgressChart({
     [data, range],
   );
   return (
-    <div className="h-60 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-60 w-full min-h-[240px]">
+      <ResponsiveContainer width="100%" height="100%" minHeight={240} minWidth={0}>
         {chartType === "bar" ? (
           <BarChart data={chartData} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -92,8 +92,8 @@ function RoleSplitChart({
 }) {
   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed"];
   return (
-    <div className="h-60 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-60 w-full min-h-[240px]">
+      <ResponsiveContainer width="100%" height="100%" minHeight={240} minWidth={0}>
         <PieChart>
           <Tooltip />
           <Pie
@@ -152,9 +152,9 @@ export default function AdminDashboardPage() {
 
       const next = {
         counts: {
-          courses: Array.isArray(c.data) ? c.data.length : 0,
+          courses: Array.isArray(c.data) ? c.data.length : Number((c.data as any)?.total ?? 0),
           users: Number((u.data as any)?.total ?? 0),
-          exams: Array.isArray(e.data) ? e.data.length : 0,
+          exams: Array.isArray(e.data) ? e.data.length : Number((e.data as any)?.total ?? 0),
         },
         roleSplit: [
           { name: "Students", value: Number((students.data as any)?.total ?? 0) },

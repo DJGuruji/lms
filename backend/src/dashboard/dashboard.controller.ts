@@ -86,13 +86,12 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select to_char(date_trunc($1, "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
+      select to_char(date_trunc('${bucket}', "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "User"
-      where "instituteId" = $2 and "createdAt" >= $3
+      where "instituteId" = $1 and "createdAt" >= $2
       group by 1
       order by 1 asc
       `,
-      bucket,
       instituteId,
       start,
     )) as { bucket: string; value: number }[];
@@ -108,14 +107,13 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select to_char(date_trunc($1, e."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
+      select to_char(date_trunc('${bucket}', e."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "Enrollment" e
       join "Course" c on c.id = e."courseId"
-      where c."instituteId" = $2 and e."createdAt" >= $3
+      where c."instituteId" = $1 and e."createdAt" >= $2
       group by 1
       order by 1 asc
       `,
-      bucket,
       instituteId,
       start,
     )) as { bucket: string; value: number }[];
@@ -131,15 +129,14 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select to_char(date_trunc($1, r."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
+      select to_char(date_trunc('${bucket}', r."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "Result" r
       join "Exam" e on e.id = r."examId"
       join "Course" c on c.id = e."courseId"
-      where c."instituteId" = $2 and r."createdAt" >= $3
+      where c."instituteId" = $1 and r."createdAt" >= $2
       group by 1
       order by 1 asc
       `,
-      bucket,
       instituteId,
       start,
     )) as { bucket: string; value: number }[];
@@ -155,13 +152,12 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select to_char(date_trunc($1, "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
+      select to_char(date_trunc('${bucket}', "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "ContentView"
-      where "instituteId" = $2 and "createdAt" >= $3
+      where "instituteId" = $1 and "createdAt" >= $2
       group by 1
       order by 1 asc
       `,
-      bucket,
       instituteId,
       start,
     )) as { bucket: string; value: number }[];

@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { S3StorageService } from '../storage/s3-storage.service.js';
 import { SubjectsService } from '../subjects/subjects.service.js';
-import { CONTENT_TYPES, type UploadContentDto } from './dto/upload-content.dto.js';
+import { type UploadContentDto } from './dto/upload-content.dto.js';
 
 const PDF_MIME = 'application/pdf';
 
@@ -19,15 +19,20 @@ function isVideoMime(mime: string): boolean {
 
 function assertMimeMatchesType(
   mime: string,
-  type: (typeof CONTENT_TYPES)[number],
+  type: string,
 ): void {
-  if (type === 'PDF' && mime !== PDF_MIME) {
-    throw new UnsupportedMediaTypeException('PDF content type requires a PDF file');
+  const normalized = type.toLowerCase();
+  if (normalized === 'pdf' && mime !== PDF_MIME) {
+    throw new UnsupportedMediaTypeException('PDF content requires a PDF file');
   }
-  if (type === 'Video' && !isVideoMime(mime)) {
-    throw new UnsupportedMediaTypeException(
-      'Video content type requires a video file',
-    );
+  if (normalized === 'video' && !isVideoMime(mime)) {
+    throw new UnsupportedMediaTypeException('Video content requires a video file');
+  }
+  if (normalized === 'audio' && !mime.startsWith('audio/')) {
+    throw new UnsupportedMediaTypeException('Audio content requires an audio file');
+  }
+  if (normalized === 'image' && !mime.startsWith('image/')) {
+    throw new UnsupportedMediaTypeException('Image content requires an image file');
   }
 }
 
@@ -44,19 +49,28 @@ export class ContentService {
     private readonly storage: S3StorageService,
   ) {}
 
-  async listBySubject(instituteId: string, subjectId: string) {
+  async listBySubject(instituteId: string, subjectId: string, page = 1, limit = 10) {
     await this.subjectsService.ensureSubjectInTenant(subjectId, instituteId);
-    return this.prisma.content.findMany({
-      where: { subjectId },
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        fileUrl: true,
-        subjectId: true,
-      },
-      orderBy: { title: 'asc' },
-    });
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.content.findMany({
+        where: { subjectId },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          type: true,
+          fileUrl: true,
+          subjectId: true,
+          categoryId: true,
+        },
+        orderBy: { title: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.content.count({ where: { subjectId } }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   /** Same as listBySubject but requires enrollment in the subject's course (student). */
@@ -64,6 +78,8 @@ export class ContentService {
     instituteId: string,
     studentId: string,
     subjectId: string,
+    page = 1,
+    limit = 10,
   ) {
     const subject = await this.prisma.subject.findFirst({
       where: {
@@ -82,7 +98,7 @@ export class ContentService {
     if (!enrollment) {
       throw new ForbiddenException('You must be enrolled in this course');
     }
-    return this.listBySubject(instituteId, subjectId);
+    return this.listBySubject(instituteId, subjectId, page, limit);
   }
 
   async upload(
@@ -94,13 +110,19 @@ export class ContentService {
       throw new BadRequestException('File is required');
     }
 
+    const t = dto.type.toLowerCase();
+    if (t === 'video' && file.size > 50 * 1024 * 1024) throw new BadRequestException('Video cannot exceed 50 MB');
+    if (t === 'pdf' && file.size > 25 * 1024 * 1024) throw new BadRequestException('PDF cannot exceed 25 MB');
+    if (t === 'audio' && file.size > 25 * 1024 * 1024) throw new BadRequestException('Audio cannot exceed 25 MB');
+    if (t === 'image' && file.size > 10 * 1024 * 1024) throw new BadRequestException('Image cannot exceed 10 MB');
+
     const mime = file.mimetype || 'application/octet-stream';
     assertMimeMatchesType(mime, dto.type);
 
     await this.subjectsService.ensureSubjectInTenant(dto.subjectId, instituteId);
 
     const segment =
-      dto.type === 'PDF' ? 'pdf' : 'video';
+      dto.type.toLowerCase().trim().replace(/[^a-z0-9]/g, '_') || 'other';
     const key = [
       'content',
       instituteId,
@@ -116,18 +138,54 @@ export class ContentService {
     return this.prisma.content.create({
       data: {
         title: dto.title.trim(),
+        description: dto.description?.trim(),
         type: dto.type,
         fileUrl,
         subjectId: dto.subjectId,
+        categoryId: dto.categoryId,
       },
       select: {
         id: true,
         title: true,
+        description: true,
         type: true,
         fileUrl: true,
         subjectId: true,
+        categoryId: true,
       },
     });
+  }
+
+  async createCategory(instituteId: string, dto: { name: string; description?: string; subjectId: string }) {
+    await this.subjectsService.ensureSubjectInTenant(dto.subjectId, instituteId);
+    return this.prisma.contentCategory.create({
+      data: {
+        name: dto.name.trim(),
+        description: dto.description?.trim(),
+        subjectId: dto.subjectId,
+      },
+      select: { id: true, name: true, description: true, subjectId: true },
+    });
+  }
+
+  async listCategories(instituteId: string, subjectId: string) {
+    await this.subjectsService.ensureSubjectInTenant(subjectId, instituteId);
+    return this.prisma.contentCategory.findMany({
+      where: { subjectId },
+      select: { id: true, name: true, description: true, subjectId: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async deleteCategory(instituteId: string, id: string) {
+    const cat = await this.prisma.contentCategory.findUnique({
+      where: { id },
+      select: { subjectId: true },
+    });
+    if (!cat) throw new NotFoundException('Category not found');
+    await this.subjectsService.ensureSubjectInTenant(cat.subjectId, instituteId);
+    await this.prisma.contentCategory.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async recordViewForStudent(

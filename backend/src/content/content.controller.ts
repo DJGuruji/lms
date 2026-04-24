@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Query,
   UploadedFile,
@@ -32,11 +34,39 @@ export class ContentController {
   list(
     @CurrentInstituteId() instituteId: string,
     @Query('subjectId') subjectId: string | undefined,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     if (!subjectId) {
       throw new BadRequestException('subjectId query parameter is required');
     }
-    return this.contentService.listBySubject(instituteId, subjectId);
+    return this.contentService.listBySubject(instituteId, subjectId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
+  }
+
+  @Post('categories')
+  async createCategory(
+    @CurrentInstituteId() instituteId: string,
+    @Body() dto: { name: string; description?: string; subjectId: string },
+  ) {
+    if (!dto.subjectId || !dto.name) throw new BadRequestException('subjectId and name are required');
+    return this.contentService.createCategory(instituteId, dto);
+  }
+
+  @Get('categories')
+  async listCategories(
+    @CurrentInstituteId() instituteId: string,
+    @Query('subjectId') subjectId: string,
+  ) {
+    if (!subjectId) throw new BadRequestException('subjectId is required');
+    return this.contentService.listCategories(instituteId, subjectId);
+  }
+
+  @Delete('categories/:id')
+  async deleteCategory(
+    @CurrentInstituteId() instituteId: string,
+    @Param('id') id: string,
+  ) {
+    return this.contentService.deleteCategory(instituteId, id);
   }
 
   /**

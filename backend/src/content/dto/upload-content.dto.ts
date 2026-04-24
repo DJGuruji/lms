@@ -1,6 +1,4 @@
-import { IsIn, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
-
-export const CONTENT_TYPES = ['Video', 'PDF'] as const;
+import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class UploadContentDto {
   @IsString()
@@ -8,9 +6,20 @@ export class UploadContentDto {
   @MaxLength(300)
   title: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
   @IsUUID()
   subjectId: string;
 
-  @IsIn(CONTENT_TYPES)
-  type: (typeof CONTENT_TYPES)[number];
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  type: string;
 }

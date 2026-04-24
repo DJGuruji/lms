@@ -16,8 +16,6 @@ const nav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: BookOpen },
-  { href: "/admin/subjects", label: "Subjects", icon: Layers },
-  { href: "/admin/content", label: "Content", icon: Film },
   { href: "/admin/exams", label: "Exams", icon: ClipboardList },
 ];
 

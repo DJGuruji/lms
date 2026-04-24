@@ -32,8 +32,10 @@ export class SubjectsController {
   @Get()
   findAll(
     @CurrentInstituteId() instituteId: string,
-    @Query() query: ListSubjectsQueryDto,
+    @Query('courseId') courseId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.subjectsService.findAllForCourse(instituteId, query.courseId);
+    return this.subjectsService.findAllForCourse(instituteId, courseId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
   }
 }

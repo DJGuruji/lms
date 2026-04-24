@@ -27,13 +27,20 @@ export class SubjectsService {
     });
   }
 
-  async findAllForCourse(instituteId: string, courseId: string) {
+  async findAllForCourse(instituteId: string, courseId: string, page = 1, limit = 10) {
     await this.coursesService.ensureCourseInTenant(courseId, instituteId);
-    return this.prisma.subject.findMany({
-      where: { courseId },
-      select: subjectSelect,
-      orderBy: { name: 'asc' },
-    });
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.subject.findMany({
+        where: { courseId },
+        select: subjectSelect,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.subject.count({ where: { courseId } }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   /** Ensures subject exists and belongs to a course in this institute (tenant). */

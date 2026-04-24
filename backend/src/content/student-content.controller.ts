@@ -37,6 +37,19 @@ export class StudentContentController {
     );
   }
 
+  @Get('categories')
+  listCategories(
+    @CurrentInstituteId() instituteId: string,
+    @Query('subjectId') subjectId: string,
+  ) {
+    if (!subjectId) {
+      throw new BadRequestException('subjectId query parameter is required');
+    }
+    // Any student enrolled in the tenant can see the categories of a subject, 
+    // but actual content enforces enrollment. We can safely list strictly tenant-scoped categories.
+    return this.contentService.listCategories(instituteId, subjectId);
+  }
+
   @Post('view')
   view(
     @CurrentInstituteId() instituteId: string,

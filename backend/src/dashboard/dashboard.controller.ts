@@ -32,15 +32,21 @@ export class DashboardController {
     let points = 7;
 
     if (range === 'week') {
-      start.setDate(now.getDate() - 6);
+      start.setUTCDate(now.getUTCDate() - 6);
+      start.setUTCHours(0, 0, 0, 0);
       bucket = 'day';
       points = 7;
     } else if (range === 'month') {
-      start.setDate(now.getDate() - 27);
+      const day = now.getUTCDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      start.setUTCDate(now.getUTCDate() + diff - 21);
+      start.setUTCHours(0, 0, 0, 0);
       bucket = 'week';
       points = 4;
     } else {
-      start.setMonth(now.getMonth() - 11);
+      start.setUTCMonth(now.getUTCMonth() - 11);
+      start.setUTCDate(1);
+      start.setUTCHours(0, 0, 0, 0);
       bucket = 'month';
       points = 12;
     }
@@ -80,7 +86,7 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select date_trunc($1, "createdAt") as bucket, count(*)::int as value
+      select to_char(date_trunc($1, "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "User"
       where "instituteId" = $2 and "createdAt" >= $3
       group by 1
@@ -89,7 +95,7 @@ export class DashboardController {
       bucket,
       instituteId,
       start,
-    )) as { bucket: Date; value: number }[];
+    )) as { bucket: string; value: number }[];
 
     return toSeries(rows, start, bucket, points);
   }
@@ -102,7 +108,7 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select date_trunc($1, e."createdAt") as bucket, count(*)::int as value
+      select to_char(date_trunc($1, e."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "Enrollment" e
       join "Course" c on c.id = e."courseId"
       where c."instituteId" = $2 and e."createdAt" >= $3
@@ -112,7 +118,7 @@ export class DashboardController {
       bucket,
       instituteId,
       start,
-    )) as { bucket: Date; value: number }[];
+    )) as { bucket: string; value: number }[];
 
     return toSeries(rows, start, bucket, points);
   }
@@ -125,7 +131,7 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select date_trunc($1, r."createdAt") as bucket, count(*)::int as value
+      select to_char(date_trunc($1, r."createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "Result" r
       join "Exam" e on e.id = r."examId"
       join "Course" c on c.id = e."courseId"
@@ -136,7 +142,7 @@ export class DashboardController {
       bucket,
       instituteId,
       start,
-    )) as { bucket: Date; value: number }[];
+    )) as { bucket: string; value: number }[];
 
     return toSeries(rows, start, bucket, points);
   }
@@ -149,7 +155,7 @@ export class DashboardController {
   ) {
     const rows = (await this.prisma.$queryRawUnsafe(
       `
-      select date_trunc($1, "createdAt") as bucket, count(*)::int as value
+      select to_char(date_trunc($1, "createdAt"), 'YYYY-MM-DD') as bucket, count(*)::int as value
       from "ContentView"
       where "instituteId" = $2 and "createdAt" >= $3
       group by 1
@@ -158,7 +164,7 @@ export class DashboardController {
       bucket,
       instituteId,
       start,
-    )) as { bucket: Date; value: number }[];
+    )) as { bucket: string; value: number }[];
 
     return toSeries(rows, start, bucket, points);
   }
@@ -174,28 +180,36 @@ export class DashboardController {
   }
 }
 
+function getBucketKey(d: Date, bucket: 'day' | 'week' | 'month') {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  if (bucket === 'month') return `${y}-${m}-01`;
+  return `${y}-${m}-${day}`;
+}
+
 function toSeries(
-  rows: { bucket: Date; value: number }[],
+  rows: { bucket: string; value: number }[],
   start: Date,
   bucket: 'day' | 'week' | 'month',
   points: number,
 ) {
   const map = new Map<string, number>();
   for (const r of rows) {
-    map.set(new Date(r.bucket).toISOString(), Number(r.value ?? 0));
+    if (r.bucket) map.set(r.bucket, Number(r.value ?? 0));
   }
 
   const result: { label: string; value: number }[] = [];
   const cursor = new Date(start);
   for (let i = 0; i < points; i++) {
-    const key = new Date(cursor).toISOString();
+    const key = getBucketKey(cursor, bucket);
     result.push({
-      label: key,
+      label: cursor.toISOString(),
       value: map.get(key) ?? 0,
     });
-    if (bucket === 'day') cursor.setDate(cursor.getDate() + 1);
-    else if (bucket === 'week') cursor.setDate(cursor.getDate() + 7);
-    else cursor.setMonth(cursor.getMonth() + 1);
+    if (bucket === 'day') cursor.setUTCDate(cursor.getUTCDate() + 1);
+    else if (bucket === 'week') cursor.setUTCDate(cursor.getUTCDate() + 7);
+    else cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
   return result;
 }

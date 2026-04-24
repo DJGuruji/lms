@@ -25,12 +25,19 @@ export class CoursesService {
     });
   }
 
-  async findAll(instituteId: string) {
-    return this.prisma.course.findMany({
-      where: forInstitute(instituteId),
-      select: courseSelect,
-      orderBy: { name: 'asc' },
-    });
+  async findAll(instituteId: string, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.course.findMany({
+        where: forInstitute(instituteId),
+        select: courseSelect,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.course.count({ where: forInstitute(instituteId) }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async update(instituteId: string, courseId: string, dto: UpdateCourseDto) {

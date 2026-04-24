@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { MANAGE_CURRICULUM_ROLES } from '../auth/access.constants.js';
@@ -33,8 +34,12 @@ export class CoursesController {
   }
 
   @Get()
-  findAll(@CurrentInstituteId() instituteId: string) {
-    return this.coursesService.findAll(instituteId);
+  findAll(
+    @CurrentInstituteId() instituteId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.coursesService.findAll(instituteId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
   }
 
   @Put(':id')

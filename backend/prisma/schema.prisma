@@ -67,23 +67,40 @@ model Subject {
 
   course   Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   contents Content[]
+  categories ContentCategory[]
   teacherSubjects TeacherSubject[]
   enrollments Enrollment[]
 
   @@index([courseId])
 }
 
-model Content {
-  id        String @id @default(uuid())
-  title     String
-  type      String
-  fileUrl   String
-  subjectId String
+model ContentCategory {
+  id          String @id @default(uuid())
+  name        String
+  description String?
+  subjectId   String
 
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  views   ContentView[]
+  subject  Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  contents Content[]
 
   @@index([subjectId])
+}
+
+model Content {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+  type        String
+  fileUrl     String
+  subjectId   String
+  categoryId  String?
+
+  subject  Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  category ContentCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  views    ContentView[]
+
+  @@index([subjectId])
+  @@index([categoryId])
 }
 
 model ContentView {

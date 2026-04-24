@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import Link from "next/link";
 import {
   BookOpen,
-  GripVertical,
-  MoreHorizontal,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -21,13 +20,20 @@ export default function CoursesPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [maxPage, setMaxPage] = useState(1);
+
   const { register, handleSubmit, reset } = useForm<Form>();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (pageStr = 1) => {
     setError(null);
     try {
-      const res = await api.get<Course[]>("/courses");
-      setCourses(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get<{ data: Course[], totalPages: number }>(`/courses?page=${pageStr}&limit=10`);
+      if (res.data && res.data.data) {
+        setCourses(res.data.data);
+        setMaxPage(res.data.totalPages || 1);
+        setPage(pageStr);
+      }
     } catch {
       setError("Could not load courses.");
     } finally {
@@ -44,7 +50,7 @@ export default function CoursesPage() {
     try {
       await api.post("/courses", { name: data.name.trim() });
       reset();
-      await load();
+      await load(1);
     } catch {
       setError("Failed to create course.");
     }
@@ -55,7 +61,7 @@ export default function CoursesPage() {
     setError(null);
     try {
       await api.delete(`/courses/${id}`);
-      await load();
+      await load(page);
     } catch {
       setError("Could not delete course.");
     }
@@ -118,58 +124,66 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {loading ? (
-          <p className="py-12 text-center text-slate-500">Loading courses…</p>
+          <p className="py-12 text-center text-slate-500 col-span-full">Loading courses…</p>
         ) : filtered.length === 0 ? (
-          <p className="py-12 text-center text-slate-500">No courses yet.</p>
+          <p className="py-12 text-center text-slate-500 col-span-full">No courses yet.</p>
         ) : (
-          filtered.map((course, idx) => (
-            <div
+          filtered.map((course) => (
+            <Link
               key={course.id}
-              className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.08)] transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+              href={`/admin/courses/${course.id}`}
+              className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_8px_30px_-12px_rgba(37,99,235,0.2)]"
             >
-              <div className="flex items-start gap-4">
-                <span className="mt-1 text-xs font-medium text-slate-400">
-                  {idx + 1}
-                </span>
-                <GripVertical className="mt-1 hidden h-5 w-5 text-slate-300 sm:block" />
-                <div>
-                  <p className="font-semibold text-slate-900">{course.name}</p>
-                  <p className="mt-1 text-xs text-[var(--lms-muted)]">
-                    Course workspace · institute-linked
-                  </p>
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                    <BookOpen className="h-6 w-6" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onDelete(course.id);
+                    }}
+                    className="rounded-lg p-2 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
+                <h3 className="font-semibold text-slate-900 transition-colors group-hover:text-blue-700">
+                  {course.name}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Manage subjects & content
+                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
-                  />
-                  <span className="text-emerald-600">Published</span>
-                </label>
-                <button
-                  type="button"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
-                  aria-label="More"
-                >
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(course.id)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+            </Link>
           ))
         )}
       </div>
+
+      {maxPage > 1 && (
+        <div className="flex items-center justify-between p-4 bg-slate-50 border-t border-slate-100 rounded-xl">
+           <button 
+              disabled={page <= 1}
+              onClick={() => load(page - 1)}
+              className="text-sm px-4 py-2 border border-slate-200 bg-white rounded-lg disabled:opacity-50"
+            >
+             Previous
+           </button>
+           <span className="text-sm font-medium text-slate-600">Page {page} of {maxPage}</span>
+           <button
+              disabled={page >= maxPage}
+              onClick={() => load(page + 1)}
+              className="text-sm px-4 py-2 border border-slate-200 bg-white rounded-lg disabled:opacity-50"
+           >
+             Next
+           </button>
+        </div>
+      )}
     </div>
   );
 }

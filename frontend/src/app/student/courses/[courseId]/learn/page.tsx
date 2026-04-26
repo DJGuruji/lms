@@ -68,7 +68,7 @@ export default function StudentLearnPage() {
             className="ml-auto flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:ring-indigo-300 hover:text-indigo-600 active:scale-95"
           >
             <Calendar className="h-4 w-4 text-indigo-500" />
-            Time table
+            Time Table
           </button>
         </div>
 

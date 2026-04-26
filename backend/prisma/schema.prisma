@@ -18,6 +18,13 @@ enum Role {
   STUDENT
 }
 
+enum CalendarAudience {
+  ALL
+  INSTITUTION_ADMIN
+  TEACHERS
+  STUDENTS
+}
+
 model Institute {
   id        String @id @default(uuid())
   name      String
@@ -26,6 +33,7 @@ model Institute {
   users   User[]
   courses Course[]
   contentViews ContentView[]
+  calendarEvents CalendarEvent[]
 }
 
 model User {
@@ -36,6 +44,7 @@ model User {
   password    String // bcrypt hash
   role        Role
   instituteId String
+  lastViewedCalendar DateTime @default(now())
   createdAt   DateTime @default(now())
 
   institute   Institute    @relation(fields: [instituteId], references: [id], onDelete: Cascade)
@@ -44,6 +53,7 @@ model User {
   teacherSubjects TeacherSubject[]
   contentViews ContentView[]
   assignmentSubmissions AssignmentSubmission[]
+  calendarEvents CalendarEvent[]
 
   @@index([instituteId])
 }
@@ -287,4 +297,24 @@ model TimeTableEntry {
   timeTable   TimeTable @relation(fields: [timeTableId], references: [id], onDelete: Cascade)
 
   @@index([timeTableId])
+}
+
+model CalendarEvent {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  date        DateTime         // The specific day
+  startTime   String?          // e.g., "10:00"
+  endTime     String?          // e.g., "11:00"
+  audience    CalendarAudience @default(ALL)
+  instituteId String
+  createdById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  institute   Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  creator     User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([instituteId, date])
+  @@index([createdById])
 }

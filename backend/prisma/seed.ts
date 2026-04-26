@@ -80,7 +80,7 @@ async function main() {
         data: {
           name: 'Demo Super Admin',
           email: `nath93266@gmail.com`,
-          password: hashed,
+          password: "Password@123",
           role: 'SUPER_ADMIN',
           instituteId: institute.id,
         },

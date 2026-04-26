@@ -220,8 +220,36 @@ export default function UsersPage() {
         </div>
       </div>
 
+      {/* Tabs / Sub-nav */}
+      <div className="flex border-b border-slate-200 px-2 overflow-x-auto no-scrollbar">
+        {[
+          { id: "", label: "All Members" },
+          { id: "STUDENT", label: "Students" },
+          { id: "TEACHER", label: "Teachers" },
+          { id: "INSTITUTION_ADMIN", label: "Administrators" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setRoleFilter(tab.id);
+              setPage(1);
+            }}
+            className={`py-4 px-6 text-sm font-bold transition-all relative whitespace-nowrap ${
+              roleFilter === tab.id
+                ? "text-blue-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            {tab.label}
+            {roleFilter === tab.id && (
+              <div className="absolute bottom-0 left-4 right-4 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in-95 duration-300" />
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Filters Area */}
-      <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4 lg:grid-cols-5">
+      <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3 lg:grid-cols-4">
         <div className="relative col-span-1 lg:col-span-2">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -231,22 +259,6 @@ export default function UsersPage() {
             onChange={(e) => setQ(e.target.value)}
             className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-400 focus:bg-white"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400 shrink-0" />
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-sm outline-none focus:border-blue-400 focus:bg-white"
-          >
-            <option value="">All Roles</option>
-            {roleOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
         </div>
         <select
           value={courseFilter}

@@ -26,4 +26,16 @@ export class PeersController {
     const l = limit ? parseInt(limit, 10) : 20;
     return this.usersService.findPeers(instituteId, me.id, p, l);
   }
+
+  @Get('teachers')
+  listTeachers(
+    @CurrentInstituteId() instituteId: string,
+    @CurrentUser() me: JwtUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const p = page ? parseInt(page, 10) : 1;
+    const l = limit ? parseInt(limit, 10) : 20;
+    return this.usersService.findCourseTeachers(instituteId, me.id, p, l);
+  }
 }

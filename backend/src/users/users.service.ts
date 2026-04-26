@@ -692,6 +692,56 @@ export class UsersService {
     return { items, total };
   }
 
+  async findCourseTeachers(instituteId: string, studentId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    // Find course IDs of this student
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { studentId },
+      select: { courseId: true },
+    });
+    const courseIds = enrollments.map((e) => e.courseId);
+
+    if (courseIds.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          instituteId,
+          role: ROLE_TEACHER as Role,
+          teacherSubjects: {
+            some: {
+              subject: {
+                courseId: { in: courseIds },
+              },
+            },
+          },
+        },
+        select: userPublicSelect,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({
+        where: {
+          instituteId,
+          role: ROLE_TEACHER as Role,
+          teacherSubjects: {
+            some: {
+              subject: {
+                courseId: { in: courseIds },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return { items, total };
+  }
+
   private async ensureUserInTenant(userId: string, instituteId: string) {
     const u = await this.prisma.user.findFirst({
       where: { id: userId, instituteId },

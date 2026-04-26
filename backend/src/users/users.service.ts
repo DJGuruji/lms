@@ -25,7 +25,7 @@ import type { UpdateUserDto } from './dto/update-user.dto.js';
 
 const BCRYPT_ROUNDS = 12;
 
-const userPublicSelect = {
+export const userPublicSelect = {
   id: true,
   name: true,
   email: true,
@@ -49,17 +49,32 @@ export class UsersService {
     const role = (dto.role ?? ROLE_STUDENT) as Role;
 
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          name: dto.name.trim(),
-          email,
-          ...(dto.mobile ? { mobile: dto.mobile.trim() } : {}),
-          password: hashed,
-          role,
-          instituteId,
-        },
-        select: userPublicSelect,
+      const user = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.user.create({
+          data: {
+            name: dto.name.trim(),
+            email,
+            ...(dto.mobile ? { mobile: dto.mobile.trim() } : {}),
+            password: hashed,
+            role,
+            instituteId,
+          },
+          select: userPublicSelect,
+        });
+
+        if (role === ROLE_STUDENT && dto.courseIds?.length) {
+          await tx.enrollment.createMany({
+            data: dto.courseIds.map((courseId) => ({
+              studentId: u.id,
+              courseId,
+              subjectId: dto.subjectId || null,
+            })),
+            skipDuplicates: true,
+          });
+        }
+        return u;
       });
+
       const temporaryPassword = dto.password ? undefined : password;
       if (temporaryPassword) {
         void this.mailService
@@ -332,26 +347,38 @@ export class UsersService {
         });
 
         // Handle Student Enrollment update
-        if (user.role === ROLE_STUDENT && dto.courseId) {
-          const existing = await tx.enrollment.findUnique({
-            where: { studentId_courseId: { studentId: userId, courseId: dto.courseId } }
+        if (user.role === ROLE_STUDENT && dto.courseIds !== undefined) {
+          const current = await tx.enrollment.findMany({
+            where: { studentId: userId },
+            select: { courseId: true },
           });
+          const currentIds = new Set(current.map((e) => e.courseId));
+          const targetIds = new Set(dto.courseIds);
 
-          if (existing) {
-            await tx.enrollment.update({
-              where: { id: existing.id },
-              data: { subjectId: dto.subjectId || null }
-            });
-          } else {
-            await tx.enrollment.deleteMany({ where: { studentId: userId } });
-            await tx.enrollment.create({
-              data: {
-                studentId: userId,
-                courseId: dto.courseId,
-                subjectId: dto.subjectId || null
-              }
+          const toDelete = current.filter((e) => !targetIds.has(e.courseId)).map((e) => e.courseId);
+          const toAdd = dto.courseIds.filter((id) => !currentIds.has(id));
+
+          if (toDelete.length > 0) {
+            await tx.enrollment.deleteMany({
+              where: { studentId: userId, courseId: { in: toDelete } },
             });
           }
+
+          if (toAdd.length > 0) {
+            await tx.enrollment.createMany({
+              data: toAdd.map((courseId) => ({
+                studentId: userId,
+                courseId,
+                subjectId: dto.subjectId || null,
+              })),
+              skipDuplicates: true,
+            });
+          }
+
+          // If subjectId changed, we might want to update it for ALL enrollments or just specific ones?
+          // The user's request just said "multi select course dropdown".
+          // For simplicity, if subjectId is provided, we'll apply it to the new ones.
+          // Existing ones keep their subjectId unless they were part of the new list.
         }
 
         // Handle Teacher Subject assignments
@@ -615,6 +642,54 @@ export class UsersService {
     }
 
     return { createdCount: created.length, created, errors };
+  }
+
+  async findPeers(instituteId: string, studentId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    
+    // Find course IDs of this student
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { studentId },
+      select: { courseId: true },
+    });
+    const courseIds = enrollments.map(e => e.courseId);
+
+    if (courseIds.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          instituteId,
+          role: ROLE_STUDENT as Role,
+          id: { not: studentId },
+          enrollments: {
+            some: {
+              courseId: { in: courseIds }
+            }
+          }
+        },
+        select: userPublicSelect,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({
+        where: {
+          instituteId,
+          role: ROLE_STUDENT as Role,
+          id: { not: studentId },
+          enrollments: {
+            some: {
+              courseId: { in: courseIds }
+            }
+          }
+        },
+      }),
+    ]);
+
+    return { items, total };
   }
 
   private async ensureUserInTenant(userId: string, instituteId: string) {

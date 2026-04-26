@@ -44,8 +44,8 @@ export class UpdateUserDto {
   role?: (typeof ASSIGNABLE)[number];
 
   @IsOptional()
-  @IsString()
-  courseId?: string;
+  @IsString({ each: true })
+  courseIds?: string[];
 
   @IsOptional()
   @IsString()

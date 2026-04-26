@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Layers, Plus, ArrowLeft, X, BookOpen, Sparkles } from "lucide-react";
+import { Layers, Plus, ArrowLeft, X, BookOpen, Sparkles, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { TimeTableTab } from "./TimeTableTab";
+import { StudentsTab } from "./StudentsTab";
 
 type Subject = { id: string; name: string; courseId: string };
 type CreateForm = { name: string };
@@ -14,7 +15,7 @@ type CreateForm = { name: string };
 export default function CourseSubjectsPage() {
   const params = useParams();
   const courseId = params.id as string;
-  const [activeTab, setActiveTab] = useState<"subjects" | "timetable">("subjects");
+  const [activeTab, setActiveTab] = useState<"subjects" | "timetable" | "students">("subjects");
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,9 +172,23 @@ export default function CourseSubjectsPage() {
             Time Table
             {activeTab === "timetable" && <div className="absolute bottom-0 left-4 right-4 h-1 bg-indigo-600 rounded-full" />}
           </button>
+          <button
+            onClick={() => setActiveTab("students")}
+            className={`py-4 px-8 text-sm font-bold transition-all relative ${
+              activeTab === "students"
+                ? "text-indigo-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+               <Users className="h-4 w-4" />
+               Students
+            </div>
+            {activeTab === "students" && <div className="absolute bottom-0 left-4 right-4 h-1 bg-indigo-600 rounded-full" />}
+          </button>
         </div>
 
-        {activeTab === "subjects" ? (
+        {activeTab === "subjects" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {error && (
               <div className="rounded-2xl border border-red-100 bg-red-50/50 px-6 py-4 text-sm font-bold text-red-700 flex items-center gap-2">
@@ -240,9 +255,10 @@ export default function CourseSubjectsPage() {
               </div>
             )}
           </div>
-        ) : (
-          <TimeTableTab courseId={courseId} />
         )}
+
+        {activeTab === "timetable" && <TimeTableTab courseId={courseId} />}
+        {activeTab === "students" && <StudentsTab courseId={courseId} />}
       </div>
     </>
   );

@@ -61,14 +61,6 @@ export class UsersController {
     });
   }
 
-  @Get(':id')
-  findOne(
-    @CurrentInstituteId() instituteId: string,
-    @Param('id', ParseUUIDPipe) userId: string,
-  ) {
-    return this.usersService.findOne(instituteId, userId);
-  }
-
   @Get('export')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   export(
@@ -87,6 +79,14 @@ export class UsersController {
         subjectId: query.subjectId,
       })
       .then((csv) => res.send(csv));
+  }
+
+  @Get(':id')
+  findOne(
+    @CurrentInstituteId() instituteId: string,
+    @Param('id', ParseUUIDPipe) userId: string,
+  ) {
+    return this.usersService.findOne(instituteId, userId);
   }
 
   @Post()

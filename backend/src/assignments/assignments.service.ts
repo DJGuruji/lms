@@ -154,7 +154,7 @@ export class AssignmentsService {
 
   // --- Student Methods ---
 
-  async listAssignmentsForStudent(instituteId: string, studentId: string) {
+  async listAssignmentsForStudent(instituteId: string, studentId: string, subjectId?: string) {
     // A student is enrolled in courses. Assignments belong to subjects.
     // Return all assignments corresponding to subjects strictly inside their enrolled courses.
     const enrollments = await this.prisma.enrollment.findMany({
@@ -167,7 +167,7 @@ export class AssignmentsService {
     return this.prisma.assignment.findMany({
       where: {
         isPublished: true,                           // ← hide unpublished from students
-        subject: { courseId: { in: courseIds } },
+        ...(subjectId ? { subjectId } : { subject: { courseId: { in: courseIds } } }),
       },
       include: {
         questions: true,

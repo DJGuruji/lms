@@ -17,6 +17,7 @@ import { UsersModule } from './users/users.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { AssignmentsModule } from './assignments/assignments.module.js';
+import { QuestionBankModule } from './question-bank/question-bank.module.js';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AssignmentsModule } from './assignments/assignments.module.js';
     MailModule,
     DashboardModule,
     AssignmentsModule,
+    QuestionBankModule,
   ],
   controllers: [AppController],
   providers: [AppService],

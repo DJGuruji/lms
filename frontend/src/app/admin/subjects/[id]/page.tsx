@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Film, FileUp, Link as LinkIcon, ArrowLeft, Tags, ListTree, MoreHorizontal, Trash2, Edit2, Pencil, FileText } from "lucide-react";
+import { Film, FileUp, Link as LinkIcon, ArrowLeft, Tags, ListTree, MoreHorizontal, Trash2, Edit2, Pencil, FileText, FolderOpen } from "lucide-react";
 import { ContentPreview } from "@/components/ContentPreview";
 import { api } from "@/lib/api";
 import { useParams } from "next/navigation";
 import { AssignmentsTab } from "./AssignmentsTab";
+import { QuestionBankTab } from "./QuestionBankTab";
 
 // --- Types ---
 type ContentCategory = {
@@ -50,7 +51,7 @@ export default function SubjectContentPage() {
   const params = useParams();
   const subjectId = params.id as string;
   
-  const [activeTab, setActiveTab] = useState<"contents" | "categories" | "assignments">("contents");
+  const [activeTab, setActiveTab] = useState<"contents" | "categories" | "assignments" | "questionbank">("contents");
   
   // Data
   const [categories, setCategories] = useState<ContentCategory[]>([]);
@@ -225,10 +226,26 @@ export default function SubjectContentPage() {
           <FileText className="h-4 w-4" />
           Assignments
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("questionbank")}
+          className={`flex items-center gap-2 border-b-2 px-4 py-4 text-sm font-medium transition ${
+            activeTab === "questionbank"
+              ? "border-amber-500 text-amber-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          <FolderOpen className="h-4 w-4" />
+          Question Bank
+        </button>
       </div>
 
       {activeTab === "assignments" && (
         <AssignmentsTab subjectId={subjectId} />
+      )}
+
+      {activeTab === "questionbank" && (
+        <QuestionBankTab subjectId={subjectId} />
       )}
 
       {/* Categories Tab */}

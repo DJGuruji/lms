@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -30,8 +31,9 @@ export class StudentAssignmentsController {
   list(
     @CurrentInstituteId() instituteId: string,
     @CurrentUser() user: JwtUser,
+    @Query('subjectId') subjectId?: string,
   ) {
-    return this.assignmentsService.listAssignmentsForStudent(instituteId, user.id);
+    return this.assignmentsService.listAssignmentsForStudent(instituteId, user.id, subjectId);
   }
 
   @Post(':assignmentId/submit')

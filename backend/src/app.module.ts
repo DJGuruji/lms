@@ -18,6 +18,7 @@ import { MailModule } from './mail/mail.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { AssignmentsModule } from './assignments/assignments.module.js';
 import { QuestionBankModule } from './question-bank/question-bank.module.js';
+import { TimeTableModule } from './time-table/time-table.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { QuestionBankModule } from './question-bank/question-bank.module.js';
     DashboardModule,
     AssignmentsModule,
     QuestionBankModule,
+    TimeTableModule,
   ],
   controllers: [AppController],
   providers: [AppService],

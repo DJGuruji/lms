@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Layers, BookOpen, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { StudentShell } from "@/components/student/StudentShell";
+import { StudentTimeTableModal } from "./StudentTimeTableModal";
+import { Calendar } from "lucide-react";
 
 type Subject = { id: string; name: string };
 type CourseRow = {
@@ -20,6 +22,7 @@ export default function StudentLearnPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSchedule, setShowSchedule] = useState(false);
 
   const loadCourse = useCallback(async () => {
     setError(null);
@@ -60,7 +63,18 @@ export default function StudentLearnPage() {
             <h1 className="text-2xl font-bold text-slate-900">{courseName || "Course Subjects"}</h1>
             <p className="text-sm text-slate-500 mt-1">Select a subject to dive into the tailored content segregations</p>
           </div>
+          <button
+            onClick={() => setShowSchedule(true)}
+            className="ml-auto flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:ring-indigo-300 hover:text-indigo-600 active:scale-95"
+          >
+            <Calendar className="h-4 w-4 text-indigo-500" />
+            Time table
+          </button>
         </div>
+
+        {showSchedule && (
+          <StudentTimeTableModal courseId={courseId} onClose={() => setShowSchedule(false)} />
+        )}
 
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">

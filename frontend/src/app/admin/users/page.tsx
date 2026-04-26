@@ -2,137 +2,91 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Mail,
-  Shield,
-  UserCircle,
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-  Users as UsersIcon,
-  RefreshCw,
-  Loader2,
-  CheckCircle2,
   AlertCircle,
+  FileDown,
+  Filter,
+  Loader2,
+  Mail,
+  Pencil,
+  Plus,
+  Search,
+  Shield,
+  Trash2,
+  UserCircle,
+  Users as UsersIcon,
+  X,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/lib/auth-store";
-
-type UserRow = {
-  id: string;
-  name: string;
-  email: string;
-  mobile?: string | null;
-  role: string;
-};
-
-type FullUser = UserRow & {
-  enrollments?: { courseId: string; subjectId?: string }[];
-  teacherSubjects?: { subjectId: string; subject: { courseId: string } }[];
-};
+import { 
+  UserRow, 
+  UserModal, 
+  EditUserModal, 
+  BulkUploadModal, 
+  ConfirmDeleteModal 
+} from "@/components/admin/UserModals";
 
 export default function UsersPage() {
-  const me = useAuthStore((s) => s.user);
   const [rows, setRows] = useState<UserRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination/Filter State
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
-  const [total, setTotal] = useState(0);
+  const [q, setQ] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState<null | UserRow>(null);
-  const [deleteOpen, setDeleteOpen] = useState<null | UserRow>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-
+  // Options State
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   const [subjectsByCourse, setSubjectsByCourse] = useState<
     Record<string, { id: string; name: string }[]>
   >({});
 
-  const [q, setQ] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [courseFilter, setCourseFilter] = useState<string>("");
-  const [subjectFilter, setSubjectFilter] = useState<string>("");
+  // Modals
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<UserRow | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState<UserRow | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const cacheKey = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("limit", String(limit));
-    if (q.trim()) params.set("q", q.trim());
-    if (roleFilter) params.set("role", roleFilter);
-    if (courseFilter) params.set("courseId", courseFilter);
-    if (subjectFilter) params.set("subjectId", subjectFilter);
-    return `adminUsers:${params.toString()}`;
-  }, [page, limit, q, roleFilter, courseFilter, subjectFilter]);
-
-  const load = useCallback(async (force?: boolean) => {
+  const load = useCallback(async () => {
+    setLoading(true);
     setError(null);
-    if (!force) {
-      const cached = typeof window !== "undefined" ? window.sessionStorage.getItem(cacheKey) : null;
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as { items: UserRow[]; total: number };
-          if (Array.isArray(parsed.items)) setRows(parsed.items);
-          if (typeof parsed.total === "number") setTotal(parsed.total);
-          setLoading(false);
-          return;
-        } catch {
-          // ignore cache parse errors
-        }
-      }
-    }
     try {
-      const res = await api.get<{
-        items: UserRow[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(`/users?${cacheKey.replace(/^adminUsers:/, "")}`);
-      setRows(Array.isArray(res.data?.items) ? res.data.items : []);
-      setTotal(Number(res.data?.total ?? 0));
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(
-          cacheKey,
-          JSON.stringify({
-            items: Array.isArray(res.data?.items) ? res.data.items : [],
-            total: Number(res.data?.total ?? 0),
-          }),
-        );
-      }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (q.trim()) params.append("q", q.trim());
+      if (roleFilter) params.append("role", roleFilter);
+      if (courseFilter) params.append("courseId", courseFilter);
+      if (subjectFilter) params.append("subjectId", subjectFilter);
+
+      const res = await api.get<{ items: UserRow[]; total: number }>(
+        `/users?${params.toString()}`,
+      );
+      setRows(res.data.items);
+      setTotal(res.data.total);
     } catch {
-      setError("Could not load users.");
+      setError("Failed to load user directory.");
     } finally {
       setLoading(false);
     }
-  }, [cacheKey]);
+  }, [page, limit, q, roleFilter, courseFilter, subjectFilter]);
 
   useEffect(() => {
-    load(false);
+    const timer = setTimeout(load, 300);
+    return () => clearTimeout(timer);
   }, [load]);
-
-  const canCreateInstitutionAdmin = me?.role === "SUPER_ADMIN" || me?.role === "ADMIN";
-  const createRoleOptions = useMemo(() => {
-    const base: {
-      value: "STUDENT" | "TEACHER" | "INSTITUTION_ADMIN";
-      label: string;
-    }[] = [
-      { value: "STUDENT", label: "Student" },
-      { value: "TEACHER", label: "Teacher" },
-    ];
-    if (canCreateInstitutionAdmin) {
-      base.push({ value: "INSTITUTION_ADMIN", label: "Institution admin" });
-    }
-    return base;
-  }, [canCreateInstitutionAdmin]);
-
-  const pageCount = Math.max(1, Math.ceil(total / limit));
 
   const loadCourses = useCallback(async () => {
     try {
-      const res = await api.get<{ id: string; name: string }[]>("/courses");
-      setCourses(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get<any>("/courses?limit=200");
+      const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      setCourses(data);
     } catch {
       setCourses([]);
     }
@@ -142,12 +96,11 @@ export default function UsersPage() {
     if (!courseId) return;
     if (subjectsByCourse[courseId]) return;
     try {
-      const res = await api.get<{ id: string; name: string }[]>(
-        `/subjects?courseId=${courseId}`,
-      );
+      const res = await api.get<any>(`/subjects?courseId=${courseId}&limit=500`);
+      const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
       setSubjectsByCourse((m) => ({
         ...m,
-        [courseId]: Array.isArray(res.data) ? res.data : [],
+        [courseId]: data,
       }));
     } catch {
       setSubjectsByCourse((m) => ({ ...m, [courseId]: [] }));
@@ -159,106 +112,42 @@ export default function UsersPage() {
   }, [loadCourses]);
 
   useEffect(() => {
-    if (courseFilter) void loadSubjects(courseFilter);
+    if (courseFilter) loadSubjects(courseFilter);
   }, [courseFilter, loadSubjects]);
 
-  async function exportUsers() {
+  const createUserAndAssignments = async (payload: any) => {
     setBusy(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (q.trim()) params.set("q", q.trim());
-      if (roleFilter) params.set("role", roleFilter);
-      if (courseFilter) params.set("courseId", courseFilter);
-      if (subjectFilter) params.set("subjectId", subjectFilter);
-
-      const res = await api.get(`/users/export?${params.toString()}`, {
-        responseType: "blob",
-      });
-      const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      setError("Failed to export users.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createUserAndAssignments(payload: {
-    name: string;
-    email: string;
-    mobile?: string;
-    password?: string;
-    role: "STUDENT" | "TEACHER" | "INSTITUTION_ADMIN";
-    courseId?: string;
-    subjectId?: string;
-    teacherSubjectIds?: string[];
-  }) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api.post<{
-        user: UserRow;
-        temporaryPassword?: string;
-      }>("/users", {
-        name: payload.name,
-        email: payload.email,
-        password: payload.password || undefined,
-        mobile: payload.mobile || undefined,
-        role: payload.role,
-      });
-      const created = res.data.user;
-
-      if (payload.role === "STUDENT" && payload.courseId) {
-        await api.post("/enroll", {
-          studentId: created.id,
-          courseId: payload.courseId,
-          ...(payload.subjectId ? { subjectId: payload.subjectId } : {}),
-        });
-      }
-
-      if (payload.role === "TEACHER" && payload.teacherSubjectIds?.length) {
-        await api.post("/users/teachers/assign-subjects", {
-          teacherId: created.id,
-          subjectIds: payload.teacherSubjectIds,
-        });
-      }
-
+      await api.post("/users", payload);
       setCreateOpen(false);
       await load();
-    } catch {
-      setError("Failed to create user. Check fields and try again.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to create user.");
     } finally {
       setBusy(false);
     }
-  }
+  };
 
-  async function updateUser(userId: string, payload: any) {
+  const updateUser = async (id: string, payload: any) => {
     setBusy(true);
     setError(null);
     try {
-      await api.patch(`/users/${userId}`, payload);
+      await api.patch(`/users/${id}`, payload);
       setEditOpen(null);
       await load();
-    } catch {
-      setError("Failed to update user.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to update user.");
     } finally {
       setBusy(false);
     }
-  }
+  };
 
-  async function deleteUser(userId: string) {
+  const deleteUser = async (id: string) => {
     setBusy(true);
     setError(null);
     try {
-      await api.delete(`/users/${userId}`);
+      await api.delete(`/users/${id}`);
       setDeleteOpen(null);
       await load();
     } catch {
@@ -266,137 +155,142 @@ export default function UsersPage() {
     } finally {
       setBusy(false);
     }
-  }
+  };
+
+  const exportCsv = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (q.trim()) params.append("q", q.trim());
+      if (roleFilter) params.append("role", roleFilter);
+      if (courseFilter) params.append("courseId", courseFilter);
+      if (subjectFilter) params.append("subjectId", subjectFilter);
+
+      const res = await api.get(`/users/export?${params.toString()}`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `users-export-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      setError("Failed to export CSV.");
+    }
+  };
+
+  const roleOptions: { value: string; label: string }[] = useMemo(() => [
+    { value: "STUDENT", label: "Student" },
+    { value: "TEACHER", label: "Teacher" },
+    { value: "INSTITUTION_ADMIN", label: "Institution Admin" },
+  ], []);
+
+  const pageCount = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Users</h2>
-          <p className="text-sm text-(--lms-muted)">
-            Manage members inside your institute — create, edit, and remove with
-            confidence.
-          </p>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">User Directory</h2>
+          <p className="text-sm font-medium text-slate-500">Manage students, teachers, and administrators.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            type="button"
-            onClick={() => {
-              setLoading(true);
-              void load(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-            disabled={busy}
-            aria-label="Refresh"
-            title="Refresh"
+            onClick={exportCsv}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
           >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
+            <FileDown className="h-4 w-4" />
+            Export CSV
           </button>
           <button
-            type="button"
             onClick={() => setBulkOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-            disabled={busy}
-          >
-            <UsersIcon className="h-4 w-4" />
-            Bulk upload
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportUsers()}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-            disabled={busy}
-          >
-            <Shield className="h-4 w-4" />
-            Export
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <Plus className="h-4 w-4" />
-            Create user
+            Bulk Upload
+          </button>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition"
+          >
+            <Plus className="h-4 w-4" />
+            Add Member
           </button>
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.1)] md:grid-cols-4">
-        <div className="md:col-span-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Search
-          </label>
-          <input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
+      {/* Tabs / Sub-nav */}
+      <div className="flex border-b border-slate-200 px-2 overflow-x-auto no-scrollbar">
+        {[
+          { id: "", label: "All Members" },
+          { id: "STUDENT", label: "Students" },
+          { id: "TEACHER", label: "Teachers" },
+          { id: "INSTITUTION_ADMIN", label: "Administrators" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setRoleFilter(tab.id);
               setPage(1);
             }}
-            placeholder="Search by username or email…"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Role
-          </label>
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            className={`py-4 px-6 text-sm font-bold transition-all relative whitespace-nowrap ${
+              roleFilter === tab.id
+                ? "text-blue-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
           >
-            <option value="">All</option>
-            <option value="STUDENT">Student</option>
-            <option value="TEACHER">Teacher</option>
-            <option value="INSTITUTION_ADMIN">Institution admin</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Course / Subject
-          </label>
-          <div className="mt-1 grid grid-cols-2 gap-2">
-            <select
-              value={courseFilter}
-              onChange={(e) => {
-                setCourseFilter(e.target.value);
-                setSubjectFilter("");
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-            >
-              <option value="">All courses</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={subjectFilter}
-              onChange={(e) => {
-                setSubjectFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-              disabled={!courseFilter}
-            >
-              <option value="">All subjects</option>
-              {(subjectsByCourse[courseFilter] ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            {tab.label}
+            {roleFilter === tab.id && (
+              <div className="absolute bottom-0 left-4 right-4 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in-95 duration-300" />
+            )}
+          </button>
+        ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_8px_30px_-12px_rgba(15,23,42,0.1)]">
+      {/* Filters Area */}
+      <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3 lg:grid-cols-4">
+        <div className="relative col-span-1 lg:col-span-2">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by name or email…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-400 focus:bg-white"
+          />
+        </div>
+        <select
+          value={courseFilter}
+          onChange={(e) => {
+            setCourseFilter(e.target.value);
+            setSubjectFilter("");
+            setPage(1);
+          }}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-sm outline-none focus:border-blue-400 focus:bg-white"
+        >
+          <option value="">All Courses</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select
+          value={subjectFilter}
+          onChange={(e) => {
+            setSubjectFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-sm outline-none focus:border-blue-400 focus:bg-white"
+          disabled={!courseFilter}
+        >
+          <option value="">All Subjects</option>
+          {(subjectsByCourse[courseFilter] ?? []).map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         {error && (
           <div className="border-b border-red-100 bg-red-50 px-6 py-3 text-sm text-red-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -438,7 +332,7 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-(--lms-muted)">
+              <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-6 py-4">Member</th>
                 <th className="px-6 py-4">Email</th>
                 <th className="px-6 py-4">Mobile</th>
@@ -523,7 +417,7 @@ export default function UsersPage() {
         <UserModal
           title="Create user"
           busy={busy}
-          roleOptions={createRoleOptions}
+          roleOptions={roleOptions}
           courses={courses}
           subjectsByCourse={subjectsByCourse}
           onLoadSubjects={loadSubjects}
@@ -564,595 +458,6 @@ export default function UsersPage() {
           onConfirm={() => deleteUser(deleteOpen.id)}
         />
       )}
-    </div>
-  );
-}
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="px-6 py-5 max-h-[80vh] overflow-y-auto custom-scrollbar">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function UserModal({
-  title,
-  busy,
-  roleOptions,
-  courses,
-  subjectsByCourse,
-  onLoadSubjects,
-  onClose,
-  onSubmit,
-}: {
-  title: string;
-  busy: boolean;
-  roleOptions: { value: "STUDENT" | "TEACHER" | "INSTITUTION_ADMIN"; label: string }[];
-  courses: { id: string; name: string }[];
-  subjectsByCourse: Record<string, { id: string; name: string }[]>;
-  onLoadSubjects: (courseId: string) => void;
-  onClose: () => void;
-  onSubmit: (payload: any) => void;
-}) {
-  const [role, setRole] = useState<"STUDENT" | "TEACHER" | "INSTITUTION_ADMIN">(
-    roleOptions[0]?.value ?? "STUDENT",
-  );
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [courseId, setCourseId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
-
-  const [teacherCourses, setTeacherCourses] = useState<string[]>([]);
-  const [teacherSubjectIds, setTeacherSubjectIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (role === "STUDENT" && courses.length && !courseId) {
-      setCourseId(courses[0].id);
-    }
-  }, [role, courses, courseId]);
-
-  useEffect(() => {
-    if (role === "STUDENT" && courseId) onLoadSubjects(courseId);
-  }, [role, courseId, onLoadSubjects]);
-
-  useEffect(() => {
-    if (role === "TEACHER") {
-      teacherCourses.forEach((c) => onLoadSubjects(c));
-    }
-  }, [role, teacherCourses, onLoadSubjects]);
-
-  const teacherSubjects = useMemo(() => {
-    const list = teacherCourses.flatMap((c) => subjectsByCourse[c] ?? []);
-    const byId = new Map<string, { id: string; name: string }>();
-    for (const s of list) byId.set(s.id, s);
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [teacherCourses, subjectsByCourse]);
-
-  return (
-    <ModalShell title={title} onClose={onClose}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Role">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as any)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-          >
-            {roleOptions.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Username">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="Full name"
-          />
-        </Field>
-        <Field label="Email">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="email@institute.com"
-          />
-        </Field>
-        <Field label="Mobile">
-          <input
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="+91..."
-          />
-        </Field>
-        <Field label="Password">
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="Minimum 8 characters"
-            type="password"
-          />
-        </Field>
-      </div>
-
-      {role === "STUDENT" && (
-        <div className="mt-6 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
-          <Field label="Course (required)">
-            <select
-              value={courseId}
-              onChange={(e) => {
-                setCourseId(e.target.value);
-                setSubjectId("");
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
-            >
-              <option value="">Select course</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Subject (optional)">
-            <select
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
-              disabled={!courseId}
-            >
-              <option value="">None</option>
-              {(subjectsByCourse[courseId] ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-      )}
-
-      {role === "TEACHER" && (
-        <div className="mt-6 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Courses (multiple)">
-              <select
-                multiple
-                value={teacherCourses}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  setTeacherCourses(selected);
-                  setTeacherSubjectIds((prev) => {
-                    const allowed = new Set(selected.flatMap((c) => (subjectsByCourse[c] ?? []).map((s) => s.id)));
-                    return prev.filter((sid) => allowed.has(sid));
-                  });
-                }}
-                className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Subjects (multiple)">
-              <select
-                multiple
-                value={teacherSubjectIds}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  setTeacherSubjectIds(selected);
-                }}
-                className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                disabled={teacherSubjects.length === 0}
-              >
-                {teacherSubjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onSubmit({
-            role,
-            name: name.trim(),
-            email: email.trim(),
-            mobile: mobile.trim() || undefined,
-            password: password.trim() || undefined,
-            ...(role === "STUDENT" ? { courseId, subjectId: subjectId || undefined } : {}),
-            ...(role === "TEACHER" ? { teacherSubjectIds } : {}),
-          })}
-          className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60"
-        >
-          {busy ? "Saving…" : "Create user"}
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function EditUserModal({
-  user,
-  busy,
-  courses,
-  subjectsByCourse,
-  onLoadSubjects,
-  onClose,
-  onSubmit,
-}: {
-  user: UserRow;
-  busy: boolean;
-  courses: { id: string; name: string }[];
-  subjectsByCourse: Record<string, { id: string; name: string }[]>;
-  onLoadSubjects: (courseId: string) => void;
-  onClose: () => void;
-  onSubmit: (payload: any) => void;
-}) {
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
-  const [mobile, setMobile] = useState(user.mobile ?? "");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  // Student
-  const [courseId, setCourseId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
-
-  // Teacher
-  const [teacherCourses, setTeacherCourses] = useState<string[]>([]);
-  const [teacherSubjectIds, setTeacherSubjectIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchFull = async () => {
-      try {
-        const res = await api.get<FullUser>(`/users/${user.id}`);
-        const full = res.data;
-        if (full.role === "STUDENT" && full.enrollments?.length) {
-          const e = full.enrollments[0];
-          setCourseId(e.courseId);
-          setSubjectId(e.subjectId || "");
-          onLoadSubjects(e.courseId);
-        } else if (full.role === "TEACHER" && full.teacherSubjects?.length) {
-          const sids = full.teacherSubjects.map(ts => ts.subjectId);
-          const cids = Array.from(new Set(full.teacherSubjects.map(ts => ts.subject.courseId)));
-          setTeacherCourses(cids);
-          setTeacherSubjectIds(sids);
-          cids.forEach(c => onLoadSubjects(c));
-        }
-      } catch (err) {
-        console.error("Failed to load full user details", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFull();
-  }, [user.id, user.role, onLoadSubjects]);
-
-  const teacherSubjects = useMemo(() => {
-    const list = teacherCourses.flatMap((c) => subjectsByCourse[c] ?? []);
-    const byId = new Map<string, { id: string; name: string }>();
-    for (const s of list) byId.set(s.id, s);
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [teacherCourses, subjectsByCourse]);
-
-  return (
-    <ModalShell title="Edit user" onClose={onClose}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Username">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-          />
-        </Field>
-        <Field label="Email">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-          />
-        </Field>
-        <Field label="Mobile">
-          <input
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-          />
-        </Field>
-        <Field label="Reset password (optional)">
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            type="password"
-            placeholder="Leave empty to keep current"
-          />
-        </Field>
-      </div>
-
-      {loading ? (
-        <div className="mt-6 py-10 text-center text-slate-400 animate-pulse">Loading assignments…</div>
-      ) : (
-        <>
-          {user.role === "STUDENT" && (
-            <div className="mt-6 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
-              <Field label="Course (required)">
-                <select
-                  value={courseId}
-                  onChange={(e) => {
-                    setCourseId(e.target.value);
-                    setSubjectId("");
-                    if (e.target.value) onLoadSubjects(e.target.value);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
-                >
-                  <option value="">Select course</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Subject (optional)">
-                <select
-                  value={subjectId}
-                  onChange={(e) => setSubjectId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
-                  disabled={!courseId}
-                >
-                  <option value="">None</option>
-                  {(subjectsByCourse[courseId] ?? []).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-          )}
-
-          {user.role === "TEACHER" && (
-            <div className="mt-6 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Courses (multiple)">
-                  <select
-                    multiple
-                    value={teacherCourses}
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                      setTeacherCourses(selected);
-                      selected.forEach(c => onLoadSubjects(c));
-                    }}
-                    className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  >
-                    {courses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Subjects (multiple)">
-                  <select
-                    multiple
-                    value={teacherSubjectIds}
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                      setTeacherSubjectIds(selected);
-                    }}
-                    className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    disabled={teacherSubjects.length === 0}
-                  >
-                    {teacherSubjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
-        <button
-          type="button"
-          disabled={busy || loading}
-          onClick={() =>
-            onSubmit({
-              name: name.trim(),
-              email: email.trim(),
-              mobile: mobile.trim(),
-              ...(password.trim() ? { password: password.trim() } : {}),
-              ...(user.role === "STUDENT" ? { courseId, subjectId: subjectId || undefined } : {}),
-              ...(user.role === "TEACHER" ? { teacherSubjectIds } : {}),
-            })
-          }
-          className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function ConfirmDeleteModal({
-  user,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  user: UserRow;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <ModalShell title="Delete user" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This will permanently delete <b>{user.name}</b> and all data associated
-          with the account (enrollments, results, assignments).
-        </div>
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onConfirm}
-            className="rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 flex items-center gap-2"
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {busy ? "Deleting…" : "Yes, delete"}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-function BulkUploadModal({
-  onClose,
-  onUploaded,
-  onError,
-  courses,
-}: {
-  onClose: () => void;
-  onUploaded: () => void | Promise<void>;
-  onError: (msg: string) => void;
-  courses: { id: string; name: string }[];
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const exampleCsv = useMemo(() => {
-    const anyCourse = courses[0]?.id ?? "COURSE_UUID";
-    return [
-      "username,email,password,role,course,subject,mobile",
-      `Student One,student1@example.com,Passw0rd!,STUDENT,${anyCourse},,`,
-      `Teacher One,teacher1@example.com,Passw0rd!,TEACHER,,SUBJECT_UUID1|SUBJECT_UUID2,+911234567890`,
-      `Institution Admin,admin1@example.com,Passw0rd!,INSTITUTION_ADMIN,,,`,
-    ].join("\r\n");
-  }, [courses]);
-
-  async function downloadExample() {
-    const blob = new Blob([exampleCsv], { type: "text/csv;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "users-bulk-example.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  }
-
-  async function upload() {
-    if (!file) {
-      onError("Please choose a CSV file.");
-      return;
-    }
-    onError("");
-    setBusy(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    try {
-      await api.post("/users/bulk", fd);
-      await onUploaded();
-    } catch {
-      onError("Bulk upload failed. Please verify the CSV format and try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Bulk upload users (CSV)" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-700">
-          Allowed roles: <b>STUDENT</b>, <b>TEACHER</b>, <b>INSTITUTION_ADMIN</b>.
-          Passwords are required; course/subject/mobile are optional.
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">CSV file</label>
-          <input
-            type="file"
-            accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => downloadExample()} className="text-xs font-semibold text-blue-600 hover:underline">Download example CSV</button>
-        </div>
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end pt-4">
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void upload()}
-            className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {busy ? "Uploading…" : "Upload"}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-        {label}
-      </label>
-      {children}
     </div>
   );
 }

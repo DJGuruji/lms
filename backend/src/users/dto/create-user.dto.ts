@@ -39,4 +39,12 @@ export class CreateUserDto {
   @IsOptional()
   @IsIn(ROLES_ON_CREATE as unknown as [string, ...string[]])
   role?: (typeof ROLES_ON_CREATE)[number];
+
+  @IsOptional()
+  @IsString({ each: true })
+  courseIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
 }

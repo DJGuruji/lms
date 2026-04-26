@@ -57,6 +57,7 @@ model Course {
   subjects    Subject[]
   enrollments Enrollment[]
   exams       Exam[]
+  timeTable   TimeTable?
 
   @@index([instituteId])
 }
@@ -260,4 +261,30 @@ model QuestionBankItem {
   folder QuestionBankFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@index([folderId])
+}
+
+model TimeTable {
+  id        String   @id @default(uuid())
+  courseId  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  entries   TimeTableEntry[]
+
+  @@index([courseId])
+}
+
+model TimeTableEntry {
+  id          String   @id @default(uuid())
+  timeTableId String
+  dayOfWeek   String   // Monday, Tuesday, etc.
+  title       String   // Subject name or event name
+  startTime   String   // e.g., "10:00 AM"
+  endTime     String   // e.g., "10:30 AM"
+  teacherName String?  // Allotted teacher for each subject or event
+
+  timeTable   TimeTable @relation(fields: [timeTableId], references: [id], onDelete: Cascade)
+
+  @@index([timeTableId])
 }

@@ -72,6 +72,7 @@ model Subject {
   teacherSubjects TeacherSubject[]
   enrollments Enrollment[]
   assignments Assignment[]
+  questionBankFolders QuestionBankFolder[]
 
   @@index([courseId])
 }
@@ -231,4 +232,32 @@ model AssignmentSubmission {
   @@unique([assignmentId, studentId])
   @@index([assignmentId])
   @@index([studentId])
+}
+
+/// A logical folder that groups question bank documents for a subject.
+model QuestionBankFolder {
+  id        String   @id @default(uuid())
+  name      String
+  subjectId String
+  createdAt DateTime @default(now())
+
+  subject Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  items   QuestionBankItem[]
+
+  @@index([subjectId])
+}
+
+/// A single document (image or PDF) inside a question bank folder.
+model QuestionBankItem {
+  id        String   @id @default(uuid())
+  title     String
+  fileUrl   String
+  fileType  String   // "image" | "pdf"
+  folderId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  folder QuestionBankFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([folderId])
 }

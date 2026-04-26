@@ -6,11 +6,10 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
-  Layers,
-  Film,
   ClipboardList,
   GraduationCap,
 } from "lucide-react";
+import { CalendarNavLink } from "../CalendarNavLink";
 
 const nav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,7 +34,7 @@ export function AdminSidebar() {
           <p className="text-sm font-bold text-slate-900">Admin</p>
         </div>
       </div>
-      <nav className="flex flex-1 flex-row gap-1 p-2 md:flex-col md:gap-0.5 md:p-3">
+      <nav className="flex flex-1 flex-row gap-1 p-2 md:flex-col md:gap-0.5 md:p-3 overflow-y-auto custom-scrollbar">
         {nav.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(href + "/");
@@ -56,9 +55,14 @@ export function AdminSidebar() {
             </Link>
           );
         })}
+
+        <CalendarNavLink 
+          href="/admin/calendar" 
+          active={pathname === "/admin/calendar" || pathname.startsWith("/admin/calendar/")} 
+        />
       </nav>
       <div className="hidden border-t border-[var(--lms-border)] p-4 text-xs text-[var(--lms-muted)] md:block">
-        Last sync · local
+        &copy; {new Date().getFullYear()} Guruji Krishna
       </div>
     </aside>
   );

@@ -1,6 +1,10 @@
-/admin/courses/321
-inside each course section there need an optionn to create time table.
-which should also visible to students in there course section.
+1. High light month name.
+also we have < today > . when seeing today people will confuse the prev and next icon for previous and next days .
 
-time table should have monday to sunday.
-Subject name / event name., alloted time interval (ex : 10 AM to 10 :30 AM), Teacher alloted for each subject or event.
+Update like
+
+< {show selected month name }>
+
+2. UI of calendar is very bad. fix it (also use bright colors instaed of light grey colors for font )
+
+3. for students when they select calendar the sidebar disappears. fix it

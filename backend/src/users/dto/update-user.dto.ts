@@ -42,4 +42,16 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(ASSIGNABLE as unknown as [string, ...string[]])
   role?: (typeof ASSIGNABLE)[number];
+
+  @IsOptional()
+  @IsString()
+  courseId?: string;
+
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
+
+  @IsOptional()
+  @IsString({ each: true })
+  teacherSubjectIds?: string[];
 }

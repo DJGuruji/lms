@@ -100,6 +100,32 @@ export class UsersService {
     return this.findPageFiltered(instituteId, { page, limit, skip });
   }
 
+  async findOne(instituteId: string, userId: string) {
+    await this.ensureUserInTenant(userId, instituteId);
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        ...userPublicSelect,
+        enrollments: {
+          select: {
+            courseId: true,
+            subjectId: true,
+          },
+        },
+        teacherSubjects: {
+          select: {
+            subjectId: true,
+            subject: {
+              select: {
+                courseId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async findPageFiltered(
     instituteId: string,
     opts: {
@@ -284,44 +310,79 @@ export class UsersService {
 
   async update(instituteId: string, userId: string, dto: UpdateUserDto) {
     await this.ensureUserInTenant(userId, instituteId);
-    if (
-      dto.name === undefined &&
-      dto.role === undefined &&
-      dto.email === undefined &&
-      dto.password === undefined &&
-      dto.mobile === undefined
-    ) {
-      throw new BadRequestException('Nothing to update');
-    }
+    
+    const email = dto.email?.trim().toLowerCase();
+    const hashed =
+      dto.password && dto.password.trim()
+        ? await bcrypt.hash(dto.password.trim(), BCRYPT_ROUNDS)
+        : undefined;
+
     try {
-      const email = dto.email?.trim().toLowerCase();
-      const hashed =
-        dto.password && dto.password.trim()
-          ? await bcrypt.hash(dto.password.trim(), BCRYPT_ROUNDS)
-          : undefined;
-      return await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-          ...(email !== undefined ? { email } : {}),
-          ...(dto.mobile !== undefined ? { mobile: dto.mobile.trim() } : {}),
-          ...(hashed !== undefined ? { password: hashed } : {}),
-          ...(dto.role !== undefined ? { role: dto.role } : {}),
-        },
-        select: userPublicSelect,
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: userId },
+          data: {
+            ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+            ...(email !== undefined ? { email } : {}),
+            ...(dto.mobile !== undefined ? { mobile: dto.mobile.trim() } : {}),
+            ...(hashed !== undefined ? { password: hashed } : {}),
+            ...(dto.role !== undefined ? { role: dto.role as Role } : {}),
+          },
+          select: userPublicSelect,
+        });
+
+        // Handle Student Enrollment update
+        if (user.role === ROLE_STUDENT && dto.courseId) {
+          const existing = await tx.enrollment.findUnique({
+            where: { studentId_courseId: { studentId: userId, courseId: dto.courseId } }
+          });
+
+          if (existing) {
+            await tx.enrollment.update({
+              where: { id: existing.id },
+              data: { subjectId: dto.subjectId || null }
+            });
+          } else {
+            await tx.enrollment.deleteMany({ where: { studentId: userId } });
+            await tx.enrollment.create({
+              data: {
+                studentId: userId,
+                courseId: dto.courseId,
+                subjectId: dto.subjectId || null
+              }
+            });
+          }
+        }
+
+        // Handle Teacher Subject assignments
+        if (user.role === ROLE_TEACHER && dto.teacherSubjectIds) {
+          const validSubjects = await tx.subject.findMany({
+            where: {
+              id: { in: dto.teacherSubjectIds },
+              course: { instituteId },
+            },
+            select: { id: true },
+          });
+
+          if (validSubjects.length !== dto.teacherSubjectIds.length) {
+            throw new BadRequestException('Some subjects are invalid for this institute');
+          }
+
+          await (tx as any).teacherSubject.deleteMany({ where: { teacherId: userId } });
+          await (tx as any).teacherSubject.createMany({
+            data: dto.teacherSubjectIds.map((subjectId) => ({
+              teacherId: userId,
+              subjectId,
+            })),
+          });
+        }
+
+        return user;
       });
     } catch (err) {
-      if (
-        err instanceof PrismaClientKnownRequestError &&
-        err.code === 'P2025'
-      ) {
-        throw new NotFoundException('User not found');
-      }
-      if (
-        err instanceof PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
-        throw new ConflictException('Email already in use');
+      if (err instanceof PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') throw new NotFoundException('User not found');
+        if (err.code === 'P2002') throw new ConflictException('Email already in use');
       }
       throw err;
     }

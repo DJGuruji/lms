@@ -9,6 +9,7 @@ import {
   GraduationCap,
   FileText,
 } from "lucide-react";
+import { CalendarNavLink } from "../CalendarNavLink";
 
 const nav = [
   { href: "/student", label: "Home", icon: LayoutDashboard, exact: true },
@@ -38,7 +39,7 @@ export function StudentSidebar() {
           <p className="text-sm font-bold text-slate-900">Learn</p>
         </div>
       </div>
-      <nav className="flex flex-1 flex-row gap-1 p-2 md:flex-col md:gap-0.5 md:p-3">
+      <nav className="flex flex-1 flex-row gap-1 p-2 md:flex-col md:gap-0.5 md:p-3 overflow-y-auto custom-scrollbar">
         {nav.map(({ href, label, icon: Icon, exact }) => {
           const on = active(href, exact);
           return (
@@ -58,6 +59,11 @@ export function StudentSidebar() {
             </Link>
           );
         })}
+        
+        <CalendarNavLink 
+          href="/student/calendar" 
+          active={active("/student/calendar")} 
+        />
       </nav>
       <div className="hidden border-t border-[var(--lms-border)] p-4 text-xs text-[var(--lms-muted)] md:block">
         Stay on track · you got this

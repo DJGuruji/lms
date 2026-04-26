@@ -19,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
 import { AssignmentsModule } from './assignments/assignments.module.js';
 import { QuestionBankModule } from './question-bank/question-bank.module.js';
 import { TimeTableModule } from './time-table/time-table.module.js';
+import { CalendarModule } from './calendar/calendar.module.js';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { TimeTableModule } from './time-table/time-table.module.js';
     AssignmentsModule,
     QuestionBankModule,
     TimeTableModule,
+    CalendarModule,
   ],
   controllers: [AppController],
   providers: [AppService],

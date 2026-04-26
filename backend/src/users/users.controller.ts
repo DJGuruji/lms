@@ -61,6 +61,14 @@ export class UsersController {
     });
   }
 
+  @Get(':id')
+  findOne(
+    @CurrentInstituteId() instituteId: string,
+    @Param('id', ParseUUIDPipe) userId: string,
+  ) {
+    return this.usersService.findOne(instituteId, userId);
+  }
+
   @Get('export')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   export(

@@ -11,6 +11,9 @@ import {
   X,
   Users as UsersIcon,
   RefreshCw,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
@@ -21,6 +24,11 @@ type UserRow = {
   email: string;
   mobile?: string | null;
   role: string;
+};
+
+type FullUser = UserRow & {
+  enrollments?: { courseId: string; subjectId?: string }[];
+  teacherSubjects?: { subjectId: string; subject: { courseId: string } }[];
 };
 
 export default function UsersPage() {
@@ -232,13 +240,7 @@ export default function UsersPage() {
     }
   }
 
-  async function updateUser(userId: string, payload: {
-    name?: string;
-    email?: string;
-    mobile?: string;
-    password?: string;
-    role?: string;
-  }) {
+  async function updateUser(userId: string, payload: any) {
     setBusy(true);
     setError(null);
     try {
@@ -396,8 +398,14 @@ export default function UsersPage() {
 
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_8px_30px_-12px_rgba(15,23,42,0.1)]">
         {error && (
-          <div className="border-b border-red-100 bg-red-50 px-6 py-3 text-sm text-red-800">
-            {error}
+          <div className="border-b border-red-100 bg-red-50 px-6 py-3 text-sm text-red-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+               <AlertCircle className="h-4 w-4" />
+               {error}
+            </div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 rounded">
+               <X className="h-3 w-3" />
+            </button>
           </div>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-4">
@@ -442,6 +450,7 @@ export default function UsersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 opacity-20" />
                     Loading directory…
                   </td>
                 </tr>
@@ -539,6 +548,9 @@ export default function UsersPage() {
         <EditUserModal
           user={editOpen}
           busy={busy}
+          courses={courses}
+          subjectsByCourse={subjectsByCourse}
+          onLoadSubjects={loadSubjects}
           onClose={() => setEditOpen(null)}
           onSubmit={(payload) => updateUser(editOpen.id, payload)}
         />
@@ -567,7 +579,7 @@ function ModalShell({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
           <h3 className="text-base font-semibold text-slate-900">{title}</h3>
           <button
@@ -579,7 +591,7 @@ function ModalShell({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 max-h-[80vh] overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );
@@ -602,16 +614,7 @@ function UserModal({
   subjectsByCourse: Record<string, { id: string; name: string }[]>;
   onLoadSubjects: (courseId: string) => void;
   onClose: () => void;
-  onSubmit: (payload: {
-    name: string;
-    email: string;
-    mobile?: string;
-    password?: string;
-    role: "STUDENT" | "TEACHER" | "INSTITUTION_ADMIN";
-    courseId?: string;
-    subjectId?: string;
-    teacherSubjectIds?: string[];
-  }) => void;
+  onSubmit: (payload: any) => void;
 }) {
   const [role, setRole] = useState<"STUDENT" | "TEACHER" | "INSTITUTION_ADMIN">(
     roleOptions[0]?.value ?? "STUDENT",
@@ -621,11 +624,9 @@ function UserModal({
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
 
-  // Student enrollment
   const [courseId, setCourseId] = useState("");
   const [subjectId, setSubjectId] = useState("");
 
-  // Teacher subjects
   const [teacherCourses, setTeacherCourses] = useState<string[]>([]);
   const [teacherSubjectIds, setTeacherSubjectIds] = useState<string[]>([]);
 
@@ -748,16 +749,10 @@ function UserModal({
                 multiple
                 value={teacherCourses}
                 onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map(
-                    (o) => o.value,
-                  );
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
                   setTeacherCourses(selected);
                   setTeacherSubjectIds((prev) => {
-                    const allowed = new Set(
-                      selected.flatMap((c) =>
-                        (subjectsByCourse[c] ?? []).map((s) => s.id),
-                      ),
-                    );
+                    const allowed = new Set(selected.flatMap((c) => (subjectsByCourse[c] ?? []).map((s) => s.id)));
                     return prev.filter((sid) => allowed.has(sid));
                   });
                 }}
@@ -775,9 +770,7 @@ function UserModal({
                 multiple
                 value={teacherSubjectIds}
                 onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map(
-                    (o) => o.value,
-                  );
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
                   setTeacherSubjectIds(selected);
                 }}
                 className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -789,40 +782,25 @@ function UserModal({
                   </option>
                 ))}
               </select>
-              {teacherSubjects.length === 0 && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Select courses to load subjects.
-                </p>
-              )}
             </Field>
           </div>
         </div>
       )}
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
+        <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
         <button
           type="button"
           disabled={busy}
-          onClick={() =>
-            onSubmit({
-              role,
-              name: name.trim(),
-              email: email.trim(),
-              mobile: mobile.trim() || undefined,
-              password: password.trim() || undefined,
-              ...(role === "STUDENT"
-                ? { courseId, subjectId: subjectId || undefined }
-                : {}),
-              ...(role === "TEACHER" ? { teacherSubjectIds } : {}),
-            })
-          }
+          onClick={() => onSubmit({
+            role,
+            name: name.trim(),
+            email: email.trim(),
+            mobile: mobile.trim() || undefined,
+            password: password.trim() || undefined,
+            ...(role === "STUDENT" ? { courseId, subjectId: subjectId || undefined } : {}),
+            ...(role === "TEACHER" ? { teacherSubjectIds } : {}),
+          })}
           className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60"
         >
           {busy ? "Saving…" : "Create user"}
@@ -835,23 +813,66 @@ function UserModal({
 function EditUserModal({
   user,
   busy,
+  courses,
+  subjectsByCourse,
+  onLoadSubjects,
   onClose,
   onSubmit,
 }: {
   user: UserRow;
   busy: boolean;
+  courses: { id: string; name: string }[];
+  subjectsByCourse: Record<string, { id: string; name: string }[]>;
+  onLoadSubjects: (courseId: string) => void;
   onClose: () => void;
-  onSubmit: (payload: {
-    name?: string;
-    email?: string;
-    mobile?: string;
-    password?: string;
-  }) => void;
+  onSubmit: (payload: any) => void;
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [mobile, setMobile] = useState(user.mobile ?? "");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // Student
+  const [courseId, setCourseId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+
+  // Teacher
+  const [teacherCourses, setTeacherCourses] = useState<string[]>([]);
+  const [teacherSubjectIds, setTeacherSubjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchFull = async () => {
+      try {
+        const res = await api.get<FullUser>(`/users/${user.id}`);
+        const full = res.data;
+        if (full.role === "STUDENT" && full.enrollments?.length) {
+          const e = full.enrollments[0];
+          setCourseId(e.courseId);
+          setSubjectId(e.subjectId || "");
+          onLoadSubjects(e.courseId);
+        } else if (full.role === "TEACHER" && full.teacherSubjects?.length) {
+          const sids = full.teacherSubjects.map(ts => ts.subjectId);
+          const cids = Array.from(new Set(full.teacherSubjects.map(ts => ts.subject.courseId)));
+          setTeacherCourses(cids);
+          setTeacherSubjectIds(sids);
+          cids.forEach(c => onLoadSubjects(c));
+        }
+      } catch (err) {
+        console.error("Failed to load full user details", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFull();
+  }, [user.id, user.role, onLoadSubjects]);
+
+  const teacherSubjects = useMemo(() => {
+    const list = teacherCourses.flatMap((c) => subjectsByCourse[c] ?? []);
+    const byId = new Map<string, { id: string; name: string }>();
+    for (const s of list) byId.set(s.id, s);
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [teacherCourses, subjectsByCourse]);
 
   return (
     <ModalShell title="Edit user" onClose={onClose}>
@@ -883,33 +904,116 @@ function EditUserModal({
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
             type="password"
-            placeholder="Leave empty to keep current password"
+            placeholder="Leave empty to keep current"
           />
         </Field>
       </div>
 
+      {loading ? (
+        <div className="mt-6 py-10 text-center text-slate-400 animate-pulse">Loading assignments…</div>
+      ) : (
+        <>
+          {user.role === "STUDENT" && (
+            <div className="mt-6 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
+              <Field label="Course (required)">
+                <select
+                  value={courseId}
+                  onChange={(e) => {
+                    setCourseId(e.target.value);
+                    setSubjectId("");
+                    if (e.target.value) onLoadSubjects(e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+                >
+                  <option value="">Select course</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Subject (optional)">
+                <select
+                  value={subjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+                  disabled={!courseId}
+                >
+                  <option value="">None</option>
+                  {(subjectsByCourse[courseId] ?? []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          )}
+
+          {user.role === "TEACHER" && (
+            <div className="mt-6 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Courses (multiple)">
+                  <select
+                    multiple
+                    value={teacherCourses}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                      setTeacherCourses(selected);
+                      selected.forEach(c => onLoadSubjects(c));
+                    }}
+                    className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  >
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Subjects (multiple)">
+                  <select
+                    multiple
+                    value={teacherSubjectIds}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                      setTeacherSubjectIds(selected);
+                    }}
+                    className="h-36 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    disabled={teacherSubjects.length === 0}
+                  >
+                    {teacherSubjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
         <button
           type="button"
-          onClick={onClose}
-          className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={busy}
+          disabled={busy || loading}
           onClick={() =>
             onSubmit({
               name: name.trim(),
               email: email.trim(),
               mobile: mobile.trim(),
               ...(password.trim() ? { password: password.trim() } : {}),
+              ...(user.role === "STUDENT" ? { courseId, subjectId: subjectId || undefined } : {}),
+              ...(user.role === "TEACHER" ? { teacherSubjectIds } : {}),
             })
           }
           className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
-          {busy ? "Saving…" : "Save changes"}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
         </button>
       </div>
     </ModalShell>
@@ -935,19 +1039,14 @@ function ConfirmDeleteModal({
           with the account (enrollments, results, assignments).
         </div>
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
           <button
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            className="rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 flex items-center gap-2"
           >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {busy ? "Deleting…" : "Yes, delete"}
           </button>
         </div>
@@ -971,8 +1070,6 @@ function BulkUploadModal({
   const [busy, setBusy] = useState(false);
 
   const exampleCsv = useMemo(() => {
-    // Note: for bulk upload we accept course/subject as "id1|id2" (UUIDs).
-    // Students: course can be multiple; subject is allowed only if exactly one course is provided.
     const anyCourse = courses[0]?.id ?? "COURSE_UUID";
     return [
       "username,email,password,role,course,subject,mobile",
@@ -1020,44 +1117,27 @@ function BulkUploadModal({
           Allowed roles: <b>STUDENT</b>, <b>TEACHER</b>, <b>INSTITUTION_ADMIN</b>.
           Passwords are required; course/subject/mobile are optional.
         </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
-              CSV file
-            </label>
-            <input
-              type="file"
-              accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex items-end justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => void downloadExample()}
-              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              Download example CSV
-            </button>
-          </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">CSV file</label>
+          <input
+            type="file"
+            accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          />
         </div>
-
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => downloadExample()} className="text-xs font-semibold text-blue-600 hover:underline">Download example CSV</button>
+        </div>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end pt-4">
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
           <button
             type="button"
             disabled={busy}
             onClick={() => void upload()}
-            className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
           >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {busy ? "Uploading…" : "Upload"}
           </button>
         </div>
@@ -1068,8 +1148,8 @@ function BulkUploadModal({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-slate-600">
+    <div className="space-y-1">
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
         {label}
       </label>
       {children}
